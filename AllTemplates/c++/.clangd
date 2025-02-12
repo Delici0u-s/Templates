@@ -1,0 +1,4 @@
+CompileFlags:
+  CompilationDatabase: "./MesonBuildStuff/build/"
+  Add: [-std=c++23]
+ 
