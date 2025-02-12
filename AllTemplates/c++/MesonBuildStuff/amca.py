@@ -216,6 +216,8 @@ def PrintHelp():
     print("    -Ae      Toggles all following args to be for the executable")
     print("             Ab, Ac and Ae will interrupt eachother")
     print("    -clear   removes build folder and executable. Also removes compile path if folder is empty after")
+    print(f"             Amca.py found at {__file__}")
+    print("                 If this is not the correct amca maybe try reducing your searchradius with -ms")
 
 if __name__=="__main__":
     GetArgPresent(TriggerArgs)
