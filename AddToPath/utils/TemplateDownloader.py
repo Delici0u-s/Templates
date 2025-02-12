@@ -53,7 +53,7 @@ def fetch_links(url):
         response.raise_for_status()
     except requests.RequestException:
         print(f"Failed to fetch {url}")
-        return []
+        exit()
 
     soup = BeautifulSoup(response.text, 'html.parser')
     base_path = urlparse(url).path.rstrip('/')
