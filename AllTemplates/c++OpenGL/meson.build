@@ -42,7 +42,7 @@ opt_var_mimalloc.add_cmake_defines({'MI_BUILD_SHARED': false})
 
 
 dependencies = []
-dependencies_str = []
+dependencies_str = ['glfw3', 'glew', 'assimp']
 
 foreach item : dependencies_str
   dependencies += dependency(item)

@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "AMCA SoftDebug",
+            "type": "shell",
+            "command": "python MesonBuildStuff/amca.py -d -ne",
+            "problemMatcher": []
+        },
+        {
+            "label": "AMCA HardDebug",
+            "type": "shell",
+            "command": "python MesonBuildStuff/amca.py -s -d -ne",
+            "problemMatcher": []
+        },
+        {
+            "label": "AMCA Clear Build",
+            "type": "shell",
+            "command": "python MesonBuildStuff/amca.py -clear",
+            "problemMatcher": []
+        },
+        {
+            "label": "AMCA SoftCompile release",
+            "type": "shell",
+            "command": "python MesonBuildStuff/amca.py -r -ne",
+            "problemMatcher": []
+        },
+        {
+            "label": "AMCA HardCompile release",
+            "type": "shell",
+            "command": "python MesonBuildStuff/amca.py -s -r -ne",
+            "problemMatcher": []
+        },
+    ]
+}
