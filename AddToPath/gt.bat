@@ -1,2 +1,2 @@
 @echo off
-python "%~dp0utils\TemplateDownloader.py"
+python "%~dp0utils\TemplateDownloader.py" %*

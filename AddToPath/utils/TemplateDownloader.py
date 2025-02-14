@@ -1,4 +1,4 @@
-import os
+import os, sys
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, unquote
@@ -87,6 +87,15 @@ def printNice(List: list[str]):
     print()
 
 def getSelection(List : list[str]):
+    try:
+        inp = int(sys.argv[1])
+        assert inp > 0 and inp < len(List)
+        return inp
+    except:
+        try:
+            return List.index(sys.argv[1])
+        except:
+            pass
     while True:
         inp = input("Select a valid name or number from the above selection (or q to quit): ")
         if inp == 'q': exit()
