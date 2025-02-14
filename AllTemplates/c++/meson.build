@@ -70,8 +70,6 @@ else
   headers = []
 endif
 
-message(output_dir)
-message(meson.project_build_root())
 executable(output_name,
            [main_file, source_files_no_main_file],
            dependencies : dependencies,
