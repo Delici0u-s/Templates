@@ -30,23 +30,20 @@ def main():
     meson_file_path = os.path.join(basedir, target_file)
 
     setupPy_path = os.path.join(basedir, "MesonBuildStuff", "amcaSetup.py")
-    buildpathdir = getNameMesonVarDecl(meson_file_path, "build_dir_where").split("'")[1].replace('/', '\\') # relative to basedir
+    buildpathdir = getNameMesonVarDecl(meson_file_path, "build_dir_where").split("'")[1].replace('/', '\\').removeprefix('\\') # relative to basedir
     totBpath = os.path.realpath(os.path.join(basedir, buildpathdir))
 
-    output_dir = getNameMesonVarDecl(meson_file_path, "output_dir").split("'")[1].replace('/', '\\')
-    output_name = getNameMesonVarDecl(meson_file_path, "output_name").split("'")[1].replace('/', '\\')
-    output_full = os.path.join(output_dir, output_name) # relative to buildpathdir
-    output_TOTAL = os.path.realpath(os.path.join(basedir, buildpathdir, output_full))
-    output_TOTAL_win = ''.join([os.path.realpath(os.path.join(basedir, buildpathdir, output_full)), '.exe'])
-    output_dir_TOTAL = os.path.realpath(os.path.join(basedir, buildpathdir, output_dir))
+    output_dir = getNameMesonVarDecl(meson_file_path, "output_dir").split("'")[1].replace('/', '\\').removeprefix('\\')
+    output_name = getNameMesonVarDecl(meson_file_path, "output_name").split("'")[1].replace('/', '\\').removeprefix('\\')
+    output_TOTAL_dir = os.path.realpath(os.path.join(basedir, buildpathdir, output_dir))
+    output_TOTAL = os.path.join(output_TOTAL_dir, output_name)
+    output_TOTAL_win = output_TOTAL + '.exe'
 
     if TriggerArgs['-clear']:
         success = (
             tryrem(output_TOTAL)
             & tryrem(output_TOTAL_win)
-            & tryremF(output_TOTAL + ".p")
-            & tryremF(output_TOTAL_win + ".p")
-            & tryremD(output_dir_TOTAL)
+            & tryremD(output_TOTAL_dir)
             & tryremF(totBpath)
         )
         if (success):
@@ -66,9 +63,9 @@ def main():
             os._exit(1)
     
     if not TriggerArgs["-nc"]: # compilation
-        os.chdir(os.path.join(basedir, buildpathdir))
         args = ' '.join(GetArgs("-Ac"))
-        didntcompile = os.system(' '.join(['meson compile', args]))
+        didntcompile = os.system(' '.join(['ninja -C', buildpathdir, args]))
+        didntcompile = os.system(f"meson install -C {buildpathdir}") and didntcompile
         if didntcompile:
             os._exit(2)
 
@@ -83,10 +80,10 @@ def main():
         outcommand = output_TOTAL + ' ' + ' '.join(GetArgs("-Ae"))
         if TriggerArgs["-m"]: # switch terminal path
             if not TriggerArgs["-ne"]:
-                os.system(f'(echo cd {output_dir_TOTAL} && echo {outcommand}) | clip')
+                os.system(f'(echo cd {output_TOTAL_dir} && echo {outcommand}) | clip')
                 print("everything has been copied to your clipboard. just press ctrl-v to print and execute")
             else:
-                os.system(f'echo cd {output_dir_TOTAL} | clip')
+                os.system(f'echo cd {output_TOTAL_dir} | clip')
                 print("everything has been copied to your clipboard. just press ctrl-v to change the directory")
             print("\nIts sadly not possible to change the terminal dir with python, so this is the solution, sry")
             os._exit(0)

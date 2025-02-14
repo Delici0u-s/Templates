@@ -5,10 +5,8 @@
             "name": "Debug Compile",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/MesonBuildStuff/build/../../Compiled/a",
-            "args": [
-                "kekw"
-            ],
+            "program": "${workspaceFolder}/MesonBuildStuff/build/../../compiled/a",
+            "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "externalConsole": false,
@@ -26,7 +24,7 @@
             "name": "Debug ReBuild & Compile",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/MesonBuildStuff/build/../../Compiled/a",
+            "program": "${workspaceFolder}/MesonBuildStuff/build/../../compiled/a",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

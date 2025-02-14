@@ -6,7 +6,7 @@ project('compiler2', ['cpp', 'c'],
 # dont change variable names, dont remove them. amca might not work then. You may change the value
 main_file = 'Code/main.cpp'
 output_name = 'a'
-output_dir = '../../Compiled/' # Relative to meson.build location
+output_dir = '../../compiled' # Relative to meson.build location
 build_dir_where = 'MesonBuildStuff/build' # Relative to meson.build location
 # from here change whatever
 
@@ -27,10 +27,13 @@ c_compiler_args = [
 
 main_file = main_file.replace('/', '\\')
 output_dir = output_dir.replace('/', '\\')
+if not output_dir.startswith('\\')
+  output_dir = '\\' + output_dir
+endif
 if not output_dir.endswith('\\') and output_dir != ''
   output_dir = ''.join([output_dir, '\\'])
 endif
-output_full = ''.join([output_dir, output_name])
+output_dir = meson.project_build_root() + output_dir
 
 cmake           = import('cmake')
 fs              = import('fs')
@@ -67,14 +70,15 @@ else
   headers = []
 endif
 
-executable(output_full,
+executable(output_name,
            [main_file, source_files_no_main_file],
-           dependencies : [dependencies],
-           include_directories : [headers],
-           cpp_args : [cpp_compiler_args],
-           c_args : [c_compiler_args],
+           dependencies : dependencies,
+           include_directories : headers,
+           cpp_args : cpp_compiler_args,
+           c_args : c_compiler_args,
            link_args : ['-static-libgcc', '-static-libstdc++'],
-           install : true)
+           install : true,
+           install_dir : output_dir)
 
 # printing context
-message('\033[2K\r\nsource files: \n   ', '   '.join(source_files), '\noutputs to:\n   ', output_full, '\n')
+message('\033[2K\r\nsource files: \n   ', '   '.join(source_files), '\noutputs to:\n   ', output_dir + output_name, '\n')

@@ -45,12 +45,11 @@ target_file = "meson.build"
 basedir = os.path.realpath(os.path.join(__file__, "..\\.."))
 meson_file_path = os.path.join(basedir, target_file)
 
-output_dir = getNameMesonVarDecl(meson_file_path, "output_dir").split("'")[1].replace('/', '\\')
-output_name = getNameMesonVarDecl(meson_file_path, "output_name").split("'")[1].replace('/', '\\')
-build_dir_name = getNameMesonVarDecl(meson_file_path, "build_dir_where").split("'")[1].replace('/', '\\')
+output_dir = getNameMesonVarDecl(meson_file_path, "output_dir").split("'")[1].replace('/', '\\').removeprefix('\\')
+output_name = getNameMesonVarDecl(meson_file_path, "output_name").split("'")[1].replace('/', '\\').removeprefix('\\')
+build_dir_name = getNameMesonVarDecl(meson_file_path, "build_dir_where").split("'")[1].replace('/', '\\').removeprefix('\\')
 output_full = os.path.join(build_dir_name, output_dir, output_name)
 ################# end bloat ##################
-
 
 update_launch_json(output_full)
 
