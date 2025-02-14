@@ -52,9 +52,9 @@ def main():
             print('Not all items were sucessfully removed')
         os._exit(int(not success)) # 'not' so True becomes 0 (as 0 is ran succesfully)
 
+    os.chdir(basedir)
     didntbuild = True
     if TriggerArgs["-s"] or not os.path.exists(totBpath):
-        os.chdir(basedir)
         mode = '--buildtype=release --debug=false' if TriggerArgs["-r"] else ""
         mode = '--buildtype=debug' if TriggerArgs["-d"] else mode
         args = ' '.join(GetArgs("-Ab"))
