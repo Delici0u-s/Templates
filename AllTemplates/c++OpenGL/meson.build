@@ -19,7 +19,8 @@ cpp_compiler_args = [
   '-pedantic',
   '-O2',
   '-lopengl32', 
-  '-lm'
+  '-lm',
+  '-lstdc++exp',
   #'-Ofast',
   #'-Os',
   #'-Oz',

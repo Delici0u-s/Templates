@@ -18,6 +18,7 @@ cpp_compiler_args = [
   '-Wextra',
   '-pedantic',
   '-O2',
+  '-lstdc++exp',
   #'-Ofast',
   #'-Os',
   #'-Oz',
