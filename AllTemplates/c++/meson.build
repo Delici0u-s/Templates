@@ -4,7 +4,7 @@ project('compiler2', ['cpp', 'c'],
 # type "meson setup build --buildtype=release" in console if release version is wanted
 
 # dont change variable names, dont remove them. amca might not work then. You may change the value
-main_file = 'Code/main.cpp'
+main_file = 'src/main.cpp'
 output_name = 'a'
 output_dir = '../../compiled' # Relative to meson.build location
 build_dir_where = 'MesonBuildStuff/build' # Relative to meson.build location

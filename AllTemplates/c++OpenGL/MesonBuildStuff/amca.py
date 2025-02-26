@@ -65,10 +65,10 @@ def main():
     if not TriggerArgs["-nc"]: # compilation
         args = ' '.join(GetArgs("-Ac"))
         didntcompile = os.system(' '.join(['ninja -C', buildpathdir, args]))
-        didntcompile = os.system(f"meson install -C {buildpathdir}") and didntcompile
+        if not didntcompile:
+            didntcompile = os.system(f"meson install -C {buildpathdir}")
         if didntcompile:
             os._exit(2)
-
 
     if not TriggerArgs["-ne"] or TriggerArgs["-m"]: # execution
         if (not TriggerArgs["-nc"] or not didntbuild) and not TriggerArgs["-c"]:
