@@ -1,6 +1,4 @@
-import os
-import re
-import sys
+import os, re, sys, subprocess
 
 ################### Code very messy, might clean up later ###########################
 
@@ -175,22 +173,41 @@ def delete_directory(filepath):
 
 def tryrem(filepath):
     if os.path.exists(filepath):
-        os.remove(filepath)
-        if os.path.exists(filepath):
+        try:
+            os.remove(filepath)
+            if os.path.exists(filepath):
+                return False
+        except:
             return False
     return True
     
 def tryremF(filepath):
     if os.path.exists(filepath):
-        return delete_directory(filepath)
+        try:
+            return delete_directory(filepath)
+        except: 
+            return False
     return True
 
 def tryremD(filepath):
     if os.path.exists(filepath):
-        os.removedirs(filepath)
-        if os.path.exists(filepath):
+        try:
+            os.removedirs(filepath)
+            if os.path.exists(filepath):
+                return False
+        except:
             return False
     return True
+
+def ensure_installed(packages):
+    """Ensure the given packages are installed, install them if missing."""
+    for package in packages:
+        try:
+            __import__(package)
+        except ImportError:
+            print(f"Installing {package}...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
 
 def PrintHelp():
     print("Automatic Meson Compiler Application")
@@ -217,6 +234,7 @@ def PrintHelp():
     print("                 If this is not the correct amca maybe try reducing your searchradius with -ms")
 
 if __name__=="__main__":
+    ensure_installed(["pip", "meson", "ninja"])
     GetArgPresent(TriggerArgs)
     if TriggerArgs["--help"]:
         PrintHelp()

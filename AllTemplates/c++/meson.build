@@ -68,8 +68,8 @@ endforeach
 
 if fs.is_dir('./include/')
   headers = include_directories('./include/') 
-elif fs.is_dir('./Code/include/')
-  headers = include_directories('./Code/include/') 
+elif fs.is_dir('./src/include/')
+  headers = include_directories('./src/include/') 
 else
   headers = []
 endif
