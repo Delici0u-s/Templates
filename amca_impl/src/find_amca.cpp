@@ -16,7 +16,7 @@
 
 namespace fs = std::filesystem;
 
-const std::vector<fs::path> SearchDir(const auto &path, const std::string_view searchfor)
+std::vector<fs::path> SearchDir(const fs::path &path, const std::string_view searchfor)
 {
   std::vector<fs::path> AllPaths{};
   for (const auto &entry : fs::directory_iterator(path))
@@ -32,7 +32,7 @@ const std::vector<fs::path> SearchDir(const auto &path, const std::string_view s
   return AllPaths;
 }
 
-constexpr fs::path GoBack(const fs::path &P, const int amount)
+fs::path GoBack(const fs::path &P, const int amount)
 {
   auto R{P};
   for (int i{0}; i < amount; ++i) { R = R.parent_path(); }
@@ -44,7 +44,7 @@ const auto DeepSearch(fs::path ExecPath, const std::string_view searchfor, const
   return SearchDir(GoBack(ExecPath, depth), searchfor);
 }
 
-constexpr int countequal(std::string_view a, std::string_view b)
+int countequal(std::string_view a, std::string_view b)
 {
   int out{0};
   const int len{static_cast<int>(a.length() < b.length() ? a.length() : b.length())};
@@ -58,12 +58,12 @@ constexpr int countequal(std::string_view a, std::string_view b)
   return out;
 }
 
-constexpr int get_depth(const fs::path &p)
+int get_depth(const fs::path &p)
 {
   return std::distance(p.begin(), p.end());
 }
 
-const fs::path FindOptimal(const std::vector<fs::path> &AllPaths, const fs::path &execution_path)
+fs::path FindOptimal(const std::vector<fs::path> &AllPaths, const fs::path &execution_path)
 {
   if (AllPaths.empty()) { return {}; }
   int execution_path_length = execution_path.string().length();
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
   std::string command{execution_command};
 
   std::thread timechecker([&]() { timecheck(GoBack(execution_path, searchDepth)); });
-  auto BestPathToFile{(FindOptimal(DeepSearch(execution_path, to_find, searchDepth), execution_path).string())};
+  auto BestPathToFile{FindOptimal(DeepSearch(execution_path, to_find, searchDepth), execution_path).string()};
   stopTimeCheck.store(true);
   if (timechecker.joinable()) timechecker.join();
 
@@ -149,5 +149,6 @@ int main(int argc, char *argv[])
     command.append(argv[i]);
   }
 
+  // WOW!
   return std::system(command.c_str());
 }
