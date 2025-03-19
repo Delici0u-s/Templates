@@ -1,0 +1,43 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Compile",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/MesonBuildStuff/build/../../compiled/a",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "AMCA SoftDebug"
+        },
+        {
+            "name": "Debug ReBuild & Compile",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/MesonBuildStuff/build/../../compiled/a",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "AMCA HardDebug"
+        }
+    ]
+}

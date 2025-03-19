@@ -1,0 +1,11 @@
+# Fragment common to C and C++ source files
+CompileFlags:
+  CompilationDatabase: "./MesonBuildStuff/build/"
+
+---
+# Fragment specific to C++ source files
+If:
+    PathExclude: [.*\.c, .*\.h]
+CompileFlags:
+    Add:
+        - "-std=c++23"
