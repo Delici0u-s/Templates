@@ -194,20 +194,25 @@ def main():
     os.chdir(basedir)
     didntbuild = True
     if TriggerArgs["-s"] or not os.path.exists(totBpath):
+        if not os.path.exists(totBpath):
+            write_cached_sources(get_current_sources())
         mode = '--buildtype=release --debug=false' if TriggerArgs["-r"] else ""
         mode = '--buildtype=debug' if TriggerArgs["-d"] else mode
         args = ' '.join(GetArgs("-Ab"))
         if OnSetup(output_dir, buildpathdir, mode, args):
             os._exit(1)
+        didntbuild = False  # Mark that setup already ran
+
     
     # Automatically check for new source files and perform minimal reconfiguration
-    if not TriggerArgs["-s"]:
+    if not TriggerArgs["-s"] and didntbuild:  # Only reconfigure if setup wasn't already run
         if check_for_new_sources():
             print("New source files detected. Running minimal reconfiguration...")
             reconfig_ret = os.system(f'meson setup --reconfigure {buildpathdir}')
             if reconfig_ret:
                 print("Reconfiguration failed!")
                 sys.exit(reconfig_ret)
+
 
     if not TriggerArgs["-nc"]:  # compilation
         args = ' '.join(GetArgs("-Ac"))
