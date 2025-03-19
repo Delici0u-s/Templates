@@ -18,8 +18,13 @@ cpp_compiler_args = [
   '-pedantic',
   '-O2',
   '-lstdc++exp',
+  '-static-libgcc', 
+  '-static-libstdc++',
 ]
-c_compiler_args = []
+c_compiler_args = [
+  '-static-libgcc', 
+  '-static-libstdc++',
+]
 
 # Normalize paths
 main_file = main_file.replace('/', '\\')
@@ -73,7 +78,7 @@ executable(output_name,
   include_directories : headers,
   cpp_args : cpp_compiler_args,
   c_args : c_compiler_args,
-  link_args : ['-static-libgcc', '-static-libstdc++'],
+  link_args : ['-static', '-static-libgcc', '-static-libstdc++'],
   install : true,
   install_dir : output_dir)
 
