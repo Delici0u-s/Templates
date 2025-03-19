@@ -50,5 +50,4 @@ def main():
     print(f"Files restored to: {root_path}")
 
 if __name__ == '__main__':
-    print("dearchiver [version:0.0.1]")
     main()

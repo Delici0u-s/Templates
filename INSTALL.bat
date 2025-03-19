@@ -1,7 +1,8 @@
 @echo off
 
 mkdir "%LOCALAPPDATA%\amca\bin"
-c++ amca_impl/src/find_amca.cpp -std=c++20 -Oz -O3 -s -os -o "%LOCALAPPDATA%\amca\bin\amca"
+cp amca_impl/snakes "%LOCALAPPDATA%\amca" -r
+cp amca_impl/amca.bat "%LOCALAPPDATA%\amca\bin"
 powershell -noprofile -executionpolicy bypass -file amca_impl/setpath.ps1 
 
 mkdir "%LOCALAPPDATA%\amca\templates" 2>nul
