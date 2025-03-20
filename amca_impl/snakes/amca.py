@@ -199,7 +199,7 @@ def main():
         mode = '--buildtype=release --debug=false' if TriggerArgs["-r"] else ""
         mode = '--buildtype=debug' if TriggerArgs["-d"] else mode
         args = ' '.join(GetArgs("-Ab"))
-        if OnSetup(output_dir, buildpathdir, mode, args):
+        if OnSetup(os.path.join(output_dir, output_name), buildpathdir, mode, args):
             os._exit(1)
         didntbuild = False  # Mark that setup already ran
 
