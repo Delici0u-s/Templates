@@ -4,31 +4,31 @@
         {
             "label": "AMCA SoftDebug",
             "type": "shell",
-            "command": "python MesonBuildStuff/amca.py -d -ne",
+            "command": "amca -d -ne",
             "problemMatcher": []
         },
         {
             "label": "AMCA HardDebug",
             "type": "shell",
-            "command": "python MesonBuildStuff/amca.py -s -d -ne",
+            "command": "amca -s -d -ne",
             "problemMatcher": []
         },
         {
             "label": "AMCA Clear Build",
             "type": "shell",
-            "command": "python MesonBuildStuff/amca.py -clear",
+            "command": "amca -clear",
             "problemMatcher": []
         },
         {
             "label": "AMCA SoftCompile release",
             "type": "shell",
-            "command": "python MesonBuildStuff/amca.py -r -ne",
+            "command": "amca -r -ne",
             "problemMatcher": []
         },
         {
             "label": "AMCA HardCompile release",
             "type": "shell",
-            "command": "python MesonBuildStuff/amca.py -s -r -ne",
+            "command": "amca -s -r -ne",
             "problemMatcher": []
         },
     ]
