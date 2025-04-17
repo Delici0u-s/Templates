@@ -240,7 +240,10 @@ def main():
             print("\nIt's sadly not possible to change the terminal directory with Python, so this is the solution.")
             os._exit(0)
         else:
-            os._exit(os.system(outcommand))
+            try:
+                os._exit(os.system(outcommand))
+            except KeyboardInterrupt:
+                os._exit(0)
 
 def getNameMesonVarDecl(filepath, variablename):
     regex = re.compile(rf'^{variablename}\s*=')
