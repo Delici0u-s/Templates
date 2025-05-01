@@ -1,6 +1,6 @@
 # Fragment common to C and C++ source files
 CompileFlags:
-  CompilationDatabase: "./MesonBuildStuff/build/"
+  CompilationDatabase: /build
 
 ---
 # Fragment specific to C++ source files

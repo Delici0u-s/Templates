@@ -2,7 +2,7 @@
 
 mkdir "%LOCALAPPDATA%\amca\bin"
 cp amca_impl/snakes "%LOCALAPPDATA%\amca" -r
-cp amca_impl/amca.bat "%LOCALAPPDATA%\amca\bin"
+gcc  amca_impl/amca_runner.c -o "%LOCALAPPDATA%\amca\bin\amca"
 powershell -noprofile -executionpolicy bypass -file amca_impl/setpath.ps1 
 
 mkdir "%LOCALAPPDATA%\amca\templates" 2>nul
