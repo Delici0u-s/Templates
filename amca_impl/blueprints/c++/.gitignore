@@ -1,0 +1,8 @@
+/build
+/font_data
+/subprojects
+
+*.exe
+*.pdb
+*.lib
+libs/*

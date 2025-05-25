@@ -1,6 +1,8 @@
 # Fragment common to C and C++ source files
 CompileFlags:
-  CompilationDatabase: /build
+    CompilationDatabase: build
+Index:
+    Background: Build
 
 ---
 # Fragment specific to C++ source files

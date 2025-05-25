@@ -242,7 +242,7 @@ Template mode:
                 for line in lines:
                     if line.lstrip().startswith('CompilationDatabase:'):
                         indent = len(line) - len(line.lstrip())
-                        new_lines.append(' ' * indent + f"CompilationDatabase: /{rel_build}")
+                        new_lines.append(' ' * indent + f"CompilationDatabase: {rel_build}")
                         updated = True
                     else:
                         new_lines.append(line)

@@ -19,6 +19,7 @@ cpp_compiler_args = [
   # '-lstdc++exp',
   '-static-libgcc', 
   '-static-libstdc++',
+  '-fno-rtti',
 ]
 c_compiler_args = [
   '-static-libgcc', 
