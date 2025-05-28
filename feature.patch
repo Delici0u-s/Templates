@@ -1,0 +1,810 @@
+commit 76f90fafe552ef8f02e89f22f3e1465556c7e185
+Author: Delici0u-s <maxi.bravo111@gmail.com>
+Date:   Thu May 1 15:59:53 2025 +0200
+
+    smol fixes
+
+diff --git a/INSTALL.bat b/INSTALL.bat
+index 4194910..19b0358 100644
+--- a/INSTALL.bat
++++ b/INSTALL.bat
+@@ -2,7 +2,7 @@
+ 
+ mkdir "%LOCALAPPDATA%\amca\bin"
+ cp amca_impl/snakes "%LOCALAPPDATA%\amca" -r
+-cp amca_impl/amca.bat "%LOCALAPPDATA%\amca\bin"
++gcc  amca_impl/amca_runner.c -o "%LOCALAPPDATA%\amca\bin\amca"
+ powershell -noprofile -executionpolicy bypass -file amca_impl/setpath.ps1 
+ 
+ mkdir "%LOCALAPPDATA%\amca\templates" 2>nul
+diff --git a/amca_impl/amca.bat b/amca_impl/amca.bat
+deleted file mode 100644
+index 8c55d8c..0000000
+--- a/amca_impl/amca.bat
++++ /dev/null
+@@ -1,2 +0,0 @@
+-@echo off
+-python "%~dp0../snakes/amca.py" %*
+diff --git a/amca_impl/amca_runner.c b/amca_impl/amca_runner.c
+new file mode 100644
+index 0000000..b6d4b16
+--- /dev/null
++++ b/amca_impl/amca_runner.c
+@@ -0,0 +1,34 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <windows.h>
++
++int main(int argc, char *argv[]) {
++  char exePath[MAX_PATH];
++  GetModuleFileNameA(NULL, exePath, MAX_PATH);
++
++  // Remove the executable name to get the directory
++  char *lastSlash = strrchr(exePath, '\\');
++  if (lastSlash) {
++    *lastSlash = '\0'; // Trim to directory path
++  }
++
++  // Construct relative path to the Python script
++  char scriptPath[MAX_PATH];
++  snprintf(scriptPath, MAX_PATH, "%s\\..\\snakes\\amca.py", exePath);
++
++  // Start building the command
++  char command[8192] = "python \"";
++  strcat(command, scriptPath);
++  strcat(command, "\"");
++
++  // Append arguments
++  for (int i = 1; i < argc; ++i) {
++    strcat(command, " \"");
++    strcat(command, argv[i]);
++    strcat(command, "\"");
++  }
++
++  // Run the command
++  return system(command);
++}
+diff --git a/amca_impl/blueprints/c++/.clangd b/amca_impl/blueprints/c++/.clangd
+index 590f729..49c9985 100644
+--- a/amca_impl/blueprints/c++/.clangd
++++ b/amca_impl/blueprints/c++/.clangd
+@@ -1,6 +1,6 @@
+ # Fragment common to C and C++ source files
+ CompileFlags:
+-  CompilationDatabase: "./MesonBuildStuff/build/"
++  CompilationDatabase: /build
+ 
+ ---
+ # Fragment specific to C++ source files
+diff --git a/amca_impl/snakes/amca.py b/amca_impl/snakes/amca.py
+index bfe2d2f..994c4e8 100644
+--- a/amca_impl/snakes/amca.py
++++ b/amca_impl/snakes/amca.py
+@@ -1,477 +1,287 @@
+-import os, re, sys, subprocess, shutil, json
+-
+-################### Automatic Meson Compiler Application (AMCA) ###########################
+-# This version includes automatic detection of new source files.
+-# If new files are detected, a minimal reconfiguration (meson setup --reconfigure <builddir>)
+-# is triggered so that the new files are added without a full rebuild.
+-
+-FollowArgs = {
+-    "-ms": '5',  # max Searches, 5 by default
+-    "-T": '-1', # select template and copy to mode
+-}
+-
+-TriggerArgs = {
+-    "-s": False,   # force running setup.py (full reconfiguration)
+-    "-r": False,   # compile in release mode
+-    "-d": False,   # compile in debug mode (should be default in meson.build)
+-    "-ne": False,  # just compile, don't execute
+-    "-nc": False,  # don't compile, just run
+-    "-ni": False,  # don't install
+-    "-nb": False,  # disable separation between build/compile and execution
+-    "-c": False,   # clear terminal before execution
+-    "-m": False,   # move terminal to output path
+-    "-Ab": [False, len(sys.argv)],  # additional args for meson build
+-    "-Ac": [False, len(sys.argv)],  # additional args for meson compile
+-    "-Ae": [False, len(sys.argv)],  # additional args for the executable
+-    "-clear": False,  # removes build folder, executable and source cache
+-    "--help": False, # select template and copy to mode
+-    "-?": False, # select template and copy to mode
+-    "-T": False, # select template and copy to mode
+-}
+-
+-def GetMesonFilePath():
+-    try:
+-        max_search = int(FollowArgs.get("-ms"))  # Default to 5 if not provided
+-    except: max_search = 0
+-    current_dir = os.getcwd()
+-    
+-    for _ in range(max_search + 1):
+-        meson_build_path = os.path.join(current_dir, "meson.build")
+-        if os.path.isfile(meson_build_path):
+-            return current_dir
+-        # If we've reached the root, break out.
+-        parent_dir = os.path.dirname(current_dir)
+-        if parent_dir == current_dir:
++import os
++import re
++import sys
++import json
++import shutil
++import signal
++import subprocess
++from pathlib import Path
++
++# --- Configuration Defaults ---
++DEFAULT_MAX_SEARCH = 5
++
++# --- Utility Functions ---
++
++def find_meson_root(start: Path, max_depth: int) -> Path:
++    for _ in range(max_depth + 1):
++        if (start / 'meson.build').is_file():
++            return start
++        if start.parent == start:
+             break
+-        current_dir = parent_dir
+-
+-    if not TriggerArgs["-T"]:
+-        print("meson.build could not be found. maybe increase search radius")
+-        exit(1)
++        start = start.parent
++    print("meson.build could not be found. Maybe increase search radius.")
++    sys.exit(1)
+ 
+ 
+-def GetSnakesDir():
+-    return os.path.join(os.environ.get("LOCALAPPDATA", ""), "amca", "snakes")
++def get_snakes_dir() -> Path:
++    return Path(os.environ.get('LOCALAPPDATA', '')) / 'amca' / 'snakes'
+ 
++# --- Source Cache ---
+ 
+-# --- Source Cache Functions ---
+-def get_cache_path():
+-    # Place .sources_cache in the same folder as this script (MesonBuildStuff/)
+-    return os.path.join(basedir, ".sources_cache")
++def cache_path(base: Path) -> Path:
++    return base / '.sources_cache'
+ 
+-def get_current_sources():
++def current_sources(snakesdir: Path) -> set[str]:
++    cmd = [sys.executable, str(snakesdir / 'globber.py'), './', '*.cpp', '*.cxx', '*.cc', '*.c']
+     try:
+-        output = subprocess.check_output(
+-            [sys.executable, os.path.join(snakesdir, 'globber.py'), './', '*.cpp', '*.cxx', '*.cc', '*.c'],
+-            universal_newlines=True
+-        )
+-        return set(filter(None, output.strip().split('\n')))
++        out = subprocess.check_output(cmd, text=True)
++        return set(filter(None, out.splitlines()))
+     except subprocess.CalledProcessError as e:
+-        print("Error running globber.py:", e)
++        print(f"Error running globber.py: {e}")
+         return set()
+ 
+-def read_cached_sources():
+-    cache_file = get_cache_path()
+-    if os.path.exists(cache_file):
+-        with open(cache_file, 'r', encoding='utf-8') as f:
+-            return set(filter(None, f.read().strip().split('\n')))
++def read_cached(base: Path) -> set[str]:
++    p = cache_path(base)
++    if p.exists():
++        return set(filter(None, p.read_text().splitlines()))
+     return set()
+ 
+-def write_cached_sources(sources):
+-    cache_file = get_cache_path()
+-    with open(cache_file, 'w', encoding='utf-8') as f:
+-        f.write('\n'.join(sorted(sources)))
++def write_cached(base: Path, sources: set[str]) -> None:
++    cache_path(base).write_text("\n".join(sorted(sources)))
+ 
+-def check_for_new_sources():
+-    current_sources = get_current_sources()
+-    cached_sources = read_cached_sources()
+-    if current_sources != cached_sources:
+-        write_cached_sources(current_sources)
++def need_reconfigure(base: Path, snakesdir: Path) -> bool:
++    curr = current_sources(snakesdir)
++    cache = read_cached(base)
++    if curr != cache:
++        write_cached(base, curr)
+         return True
+     return False
+ 
+-def update_launch_json(output_full):
+-    vscode_folder = os.path.join(basedir, ".vscode")
+-    launch_json_path = os.path.join(vscode_folder, "launch.json")
++# --- VSCode / Clangd Integration ---
+ 
+-    if not os.path.exists(launch_json_path):
+-        print("launch.json not found. Skipping modification.")
++def update_json(file: Path, key: str, value: str) -> None:
++    if not file.exists():
+         return
+-
+     try:
+-        with open(launch_json_path, "r", encoding="utf-8") as file:
+-            data = json.load(file)
+-
+-        for config in data.get("configurations", []):
+-            config["program"] = "${workspaceFolder}/" + output_full.replace("\\", "/")
+-
+-        with open(launch_json_path, "w", encoding="utf-8") as file:
+-            json.dump(data, file, indent=4)
+-        print("Updated launch.json successfully.")
++        data = json.loads(file.read_text())
++        changed = False
++        for cfg in data.get('configurations', []):
++            cfg[key] = value
++            changed = True
++        if changed:
++            file.write_text(json.dumps(data, indent=4))
+     except Exception as e:
+-        print(f"Failed to update launch.json: {e}")
+-
+-def update_clangd_config(new_value):
+-    """
+-    Update or add the CompilationDatabase variable in the .clangd file.
+-    new_value should be a string (or something that converts to string) that you want to set.
+-    """
+-    clangd_path = os.path.join(basedir, ".clangd")
+-    if not os.path.exists(clangd_path):
+-        print(".clangd not found. Skipping modification.")
+-        return
++        print(f"Failed to update {file.name}: {e}")
+ 
+-    try:
+-        with open(clangd_path, "r", encoding="utf-8") as file:
+-            lines = file.readlines()
+-
+-        new_lines = []
+-        updated = False
+-        for line in lines:
+-            # Check if the line starts (ignoring whitespace) with "CompilationDatabase:"
+-            if line.lstrip().startswith("CompilationDatabase:"):
+-                indent = len(line) - len(line.lstrip())
+-                new_line = " " * indent + "CompilationDatabase: " + str(new_value) + "\n"
+-                new_lines.append(new_line)
+-                updated = True
+-            else:
+-                new_lines.append(line)
+-        # If the setting was not found, append it.
+-        if not updated:
+-            new_lines.append("CompilationDatabase: " + str(new_value) + "\n")
+-
+-        with open(clangd_path, "w", encoding="utf-8") as file:
+-            file.writelines(new_lines)
+-        print("Updated .clangd successfully.")
+-    except Exception as e:
+-        print(f"Failed to update .clangd: {e}")
++# --- Template Mode ---
+ 
+-def OnSetup(outputdir, builddir, mode, args):
+-    update_launch_json(os.path.join(builddir, outputdir))
+-    update_clangd_config(builddir)
+-    os.chdir(basedir)
++def get_folders(template_dir: Path) -> list[str]:
++    if not template_dir.is_dir():
++        return []
++    return [d.name for d in template_dir.iterdir() if d.is_dir()]
+ 
+-    print(''.join(["meson setup ", builddir,  " --wipe ", mode, args]))
+-    return (os.system(''.join(["meson setup ", builddir,  " --wipe ", mode, args])))
+ 
+-    # returns true if it didnt build
+-    return False
++def copy_folder(src: Path, dst: Path) -> None:
++    try:
++        shutil.copytree(src, dst, dirs_exist_ok=True)
++        print(f"Copied {src.name} to {dst}")
++    except Exception as e:
++        print(f"Error copying folder: {e}")
+ 
+-# --- End Source Cache Functions ---
+ 
+-def main():
+-    # might need to implement meson.build searching
+-    # basedir = os.path.realpath(os.path.join(__file__, "..\\.."))
+-    meson_file_path = os.path.join(basedir, "meson.build")
+-
+-    buildpathdir = getNameMesonVarDecl(meson_file_path, "build_dir_where").split("'")[1].replace('/', '\\').removeprefix('\\')  # relative to basedir
+-    totBpath = os.path.realpath(os.path.join(basedir, buildpathdir))
+-
+-    output_dir = getNameMesonVarDecl(meson_file_path, "output_dir").split("'")[1].replace('/', '\\').removeprefix('\\')
+-    output_name = getNameMesonVarDecl(meson_file_path, "output_name").split("'")[1].replace('/', '\\').removeprefix('\\')
+-    output_TOTAL_dir = os.path.realpath(os.path.join(basedir, buildpathdir, output_dir))
+-    output_TOTAL = os.path.join(output_TOTAL_dir, output_name)
+-    output_TOTAL_win = output_TOTAL + '.exe'
+-
+-    if TriggerArgs['-clear']:
+-        # Remove build artifacts...
+-        success = (
+-            tryrem(output_TOTAL)
+-            & tryrem(output_TOTAL_win)
+-            & tryremD(output_TOTAL_dir)
+-            & tryremF(totBpath)
+-        )
+-        # Also remove the source cache file stored in MesonBuildStuff
+-        cache_file = get_cache_path()
+-        if os.path.exists(cache_file):
+-            success = tryrem(cache_file) and success
+-        if success:
+-            print("All items successfully removed")
++def delete_dir(p: Path) -> None:
++    try:
++        shutil.rmtree(p)
++        print(f"Removed template: {p.name}")
++    except Exception as e:
++        print(f"Error removing template: {e}")
++
++
++def templating(mode: str, snakesdir: Path) -> None:
++    template_dir = snakesdir.parent / 'templates'
++    templates = get_folders(template_dir)
++    if mode == 'list':
++        for idx, name in enumerate(templates):
++            print(f"[{idx}] {name}")
++    elif mode == 'get':
++        idx = int(input("Enter template number: "))
++        copy_folder(template_dir / templates[idx], Path.cwd())
++    elif mode == 'create':
++        name = input("New template name: ")
++        dest = template_dir / name
++        if dest.exists():
++            print("Template already exists.")
+         else:
+-            print("Not all items were successfully removed")
+-        os._exit(int(not success))  # 0 indicates success
++            copy_folder(Path.cwd(), dest)
++    elif mode == 'remove':
++        for idx, name in enumerate(templates):
++            print(f"[{idx}] {name}")
++        idx = int(input("Enter template number to remove: "))
++        delete_dir(template_dir / templates[idx])
++    else:
++        print("Unknown template mode")
++    sys.exit(0)
+ 
+-    os.chdir(basedir)
+-    didntbuild = True
+-    if TriggerArgs["-s"] or not os.path.exists(totBpath):
+-        if not os.path.exists(totBpath):
+-            write_cached_sources(get_current_sources())
+-        mode = '--buildtype=release --debug=false' if TriggerArgs["-r"] else ""
+-        mode = '--buildtype=debug' if TriggerArgs["-d"] else mode
+-        args = ' '.join(GetArgs("-Ab"))
+-        if OnSetup(os.path.join(output_dir, output_name), buildpathdir, mode, args):
+-            os._exit(1)
+-        didntbuild = False  # Mark that setup already ran
+-
+-    
+-    # Automatically check for new source files and perform minimal reconfiguration
+-    if not TriggerArgs["-s"] and didntbuild:  # Only reconfigure if setup wasn't already run
+-        if check_for_new_sources():
+-            print("New source files detected. Running minimal reconfiguration...")
+-            reconfig_ret = os.system(f'meson setup --reconfigure {buildpathdir}')
+-            if reconfig_ret:
+-                print("Reconfiguration failed!")
+-                sys.exit(reconfig_ret)
+-
+-
+-    if not TriggerArgs["-nc"]:  # compilation
+-        args = ' '.join(GetArgs("-Ac"))
+-        didntcompile = os.system(' '.join(['ninja -C', buildpathdir, args]))
+-        if not didntcompile and not TriggerArgs["-ni"]:
+-            didntcompile = os.system(f"meson install -C {buildpathdir}")
+-        if didntcompile:
+-            os._exit(2)
+-
+-    if not TriggerArgs["-ne"] or TriggerArgs["-m"]:  # execution
+-        if (not TriggerArgs["-nc"] or not didntbuild) and not TriggerArgs["-c"]:
+-            os.system('echo[')
+-            os.system('echo ---------------------------------------------------------------------------------------------')
+-            os.system('echo[')
+-        if TriggerArgs['-c']:
+-            os.system('cls')
+-        outcommand = output_TOTAL + ' ' + ' '.join(GetArgs("-Ae"))
+-        if TriggerArgs["-m"]:  # switch terminal path
+-            if not TriggerArgs["-ne"]:
+-                os.system(f'(echo cd {output_TOTAL_dir} && echo {outcommand}) | clip')
+-                print("Everything has been copied to your clipboard. Just press Ctrl+V to print and execute.")
+-            else:
+-                os.system(f'echo cd {output_TOTAL_dir} | clip')
+-                print("Everything has been copied to your clipboard. Just press Ctrl+V to change the directory.")
+-            print("\nIt's sadly not possible to change the terminal directory with Python, so this is the solution.")
+-            os._exit(0)
+-        else:
+-            try:
+-                os._exit(os.system(outcommand))
+-            except KeyboardInterrupt:
+-                os._exit(0)
++# --- Cleanup Helpers ---
+ 
+-def getNameMesonVarDecl(filepath, variablename):
+-    regex = re.compile(rf'^{variablename}\s*=')
+-    out = 'NOT_FOUND'
++def remove_file(p: Path) -> bool:
+     try:
+-        with open(filepath, 'r', encoding='utf-8') as file:
+-            for line in file:
+-                if regex.match(line):
+-                    out = line
+-                    break
+-            else:
+-                print(f"No {variablename} found in {filepath}.")
+-    except FileNotFoundError:
+-        print(f"{filepath} not found.")
+-    except Exception as e:
+-        print(f"An error occurred looking for {variablename}: {e}")
+-    return out
+-
+-def GetArgOption(arg_dict):
+-    toggle = True
+-    for x in range(len(sys.argv) - 1):  # -1 to avoid out-of-bounds error on last argument
+-        if sys.argv[x] in ['-Ab', '-Ac', '-Ae']:
+-            toggle = False
+-        elif sys.argv[x] in arg_dict and toggle:
+-            arg_dict[sys.argv[x]] = sys.argv[x + 1]
+-    return arg_dict
+-
+-def GetArgPresent(arg_dict):
+-    toggle = True
+-    for x in range(len(sys.argv)):
+-        if sys.argv[x] in ['-Ab', '-Ac', '-Ae']:
+-            arg_dict[sys.argv[x]] = [True, x]
+-            toggle = False
+-        elif sys.argv[x] in arg_dict and toggle:
+-            arg_dict[sys.argv[x]] = True
+-    return arg_dict
+-
+-def GetArgs(Option):
+-    out = []
+-    optargs = ["-Ab", "-Ac", "-Ae"]
+-    optargs.remove(Option)
+-    toggle = False
+-    for x in sys.argv:
+-        if x in optargs:
+-            toggle = False
+-        elif x == Option:
+-            toggle = True
+-        elif toggle:
+-            out.append(x)
+-    return out
+-
+-def delete_directory(filepath):
+-    if not os.path.exists(filepath):
+-        print(f"Error: The directory '{filepath}' does not exist.")
++        if p.exists():
++            p.unlink()
++        return True
++    except Exception:
+         return False
+-    for root, dirs, files in os.walk(filepath, topdown=False):
+-        for name in files:
+-            file_path = os.path.join(root, name)
+-            try:
+-                os.remove(file_path)
+-            except Exception as e:
+-                print(f"Error deleting file {file_path}: {e}")
+-                return False
+-        for name in dirs:
+-            dir_path = os.path.join(root, name)
+-            try:
+-                os.rmdir(dir_path)
+-            except Exception as e:
+-                print(f"Error deleting directory {dir_path}: {e}")
+-                return False
++
++def remove_dir(p: Path) -> bool:
+     try:
+-        os.rmdir(filepath)
+-    except Exception as e:
+-        print(f"Error deleting directory {filepath}: {e}")
++        if p.exists():
++            shutil.rmtree(p)
++        return True
++    except Exception:
+         return False
+-    return True
+ 
+-def copyFolder(src, dst):
+-    """Recursively copies a folder from src to dst."""
+-    try:
+-        shutil.copytree(src, dst, dirs_exist_ok=True)  # Overwrites existing files if needed
+-        print(f"Copied {src} to {dst}")
+-    except Exception as e:
+-        print(f"Error copying folder: {e}")
++# --- Signal Handling ---
+ 
+-def tryrem(filepath):
+-    if os.path.exists(filepath):
+-        try:
+-            os.remove(filepath)
+-            if os.path.exists(filepath):
+-                return False
+-        except:
+-            return False
+-    return True
+-
+-def tryremF(filepath):
+-    if os.path.exists(filepath):
+-        try:
+-            return delete_directory(filepath)
+-        except:
+-            return False
+-    return True
++def handle_sigint(signum, frame):
++    sys.exit(0)
+ 
+-def tryremD(filepath):
+-    if os.path.exists(filepath):
+-        try:
+-            os.removedirs(filepath)
+-            if os.path.exists(filepath):
+-                return False
+-        except:
+-            return False
+-    return True
+-
+-def printNice(List: list[str]):
+-    l = 0
+-    for idx, i in enumerate(List):
+-        if l > 100:
+-            print()
+-        l += len(i) + 4
+-        print(f"[{idx}] {i}", end='  ')
+-    print()
+-
+-def getSelection(List : list[str]):
+-    try:
+-        inp = int(sys.argv[1])
+-        assert inp >= 0 and inp < len(List)
+-        return inp
+-    except:
+-        try:
+-            return List.index(sys.argv[1])
+-        except:
+-            pass
+-    while True:
+-        inp = input("Select a valid name or number from the above selection (or q to quit): ")
+-        if inp == 'q': exit()
+-        try:
+-            inp = int(inp)    
+-            assert inp >= 0 and inp < len(List)
+-            return inp
+-        except:
++# --- Main Execution ---
++
++def main():
++    signal.signal(signal.SIGINT, handle_sigint)
++
++    import argparse
++    parser = argparse.ArgumentParser(
++        description="Automatic Meson Compiler Application",
++        formatter_class=argparse.RawDescriptionHelpFormatter,
++        epilog="""
++Template mode:
++  -T list    List available templates
++  -T get     Import a template into current directory
++  -T create  Save current dir as new template
++  -T remove  Delete an existing template
++"""
++    )
++    parser.add_argument('-ms', type=int, default=DEFAULT_MAX_SEARCH,
++                        help='Max meson.build search depth')
++    parser.add_argument('-s', action='store_true', help='Full meson setup')
++    parser.add_argument('-r', action='store_true', help='Release build')
++    parser.add_argument('-d', action='store_true', help='Debug build')
++    parser.add_argument('-ne', action='store_true', help="Don't execute")
++    parser.add_argument('-nc', action='store_true', help="Don't compile")
++    parser.add_argument('-ni', action='store_true', help="Don't install")
++    parser.add_argument('-c', action='store_true', help='Clear console before run')
++    parser.add_argument('-m', action='store_true', help='Copy cd/run commands to clipboard')
++    parser.add_argument('-clear', action='store_true', help='Remove build artifacts')
++    parser.add_argument('-T', choices=['list', 'get', 'create', 'remove'],
++                        help='Template mode operations')
++    parser.add_argument('-Ab', nargs='*', default=[], help='Extra meson setup args')
++    parser.add_argument('-Ac', nargs='*', default=[], help='Extra compile args')
++    parser.add_argument('-Ae', nargs='*', default=[], help='Extra run args')
++    args = parser.parse_args()
++
++    snakesdir = get_snakes_dir()
++    if args.T:
++        templating(args.T, snakesdir)
++
++    basedir = find_meson_root(Path.cwd(), args.ms)
++
++    # Load Meson variables
++    def _get_var(name: str) -> str:
++        pat = re.compile(rf"^{name}\s*=\s*['\"](.*)['\"]")
++        for line in (basedir / 'meson.build').read_text().splitlines():
++            m = pat.match(line)
++            if m:
++                return m.group(1)
++        print(f"{name} not found in meson.build")
++        sys.exit(1)
++
++    build_dir = basedir / Path(_get_var('build_dir_where'))
++    output_sub = Path(_get_var('output_dir'))
++    exe_name = _get_var('output_name') + ('.exe' if os.name == 'nt' else '')
++
++    # Handle clear
++    if args.clear:
++        exe_path = build_dir / output_sub / exe_name
++        results = []
++        # remove executable
++        results.append(remove_file(exe_path))
++        # remove output subdirectory only, not basedir
++        results.append(remove_dir(build_dir / output_sub))
++        # remove build directory
++        results.append(remove_dir(build_dir))
++        # remove cache file
++        cache_file = cache_path(basedir)
++        if cache_file.exists():
++            results.append(remove_file(cache_file))
++        success = all(results)
++        print("Cleared artifacts" if success else "Some artifacts could not be removed")
++        sys.exit(0)
++
++    os.chdir(basedir)
++
++    # Setup or reconfigure
++    if args.s or not build_dir.exists():
++        if not build_dir.exists():
++            write_cached(basedir, current_sources(snakesdir))
++        mode = '--buildtype=release' if args.r else ('--buildtype=debug' if args.d else '')
++        cmd = ['meson', 'setup', str(build_dir), '--wipe', mode] + args.Ab
++        # VSCode launch.json: use workspace-relative path
++        rel_exe = (build_dir / output_sub / exe_name).relative_to(basedir)
++        update_json(basedir / '.vscode' / 'launch.json', 'program', f"${{workspaceFolder}}/{rel_exe}")
++        # .clangd: set CompilationDatabase to workspace-relative build dir
++        ##########################
++        # .clangd: update or append CompilationDatabase in YAML .clangd
++        rel_build = build_dir.relative_to(basedir).as_posix()
++        clangd_path = basedir / '.clangd'
++        if clangd_path.exists():
+             try:
+-                return List.index(inp)
+-            except:
+-                pass
+-
+-def getFolders(templateDir):
+-    """Returns a list of all folder names in the given directory."""
+-    if not os.path.isdir(templateDir):
+-        return []  # Return an empty list if the directory does not exist or is not valid
+-
+-    return [name for name in os.listdir(templateDir) if os.path.isdir(os.path.join(templateDir, name))]
+-
+-            
+-def templating():
+-    templateDir = os.path.join(snakesdir, '..\\templates')
+-    folders = getFolders(templateDir)
+-    if (FollowArgs["-T"] == '-g'):
+-        printNice(folders)
+-        selection = None
+-        for i in range(len(sys.argv) - 1):
+-            if sys.argv[i] == '-g':
+-                try:
+-                    selection = int(sys.argv[i + 1])
+-                    assert 0 <= selection < len(folders)
+-                except (ValueError, AssertionError, IndexError):
+-                    pass
+-        if selection is None:
+-            selection = folders[getSelection(folders)]
+-        else:
+-            selection = folders[selection]
+-
+-        copyFolder(os.path.join(templateDir, selection), os.getcwd())
+-    elif (FollowArgs["-T"] == '-c'):
+-        name = input("What name should the template have: ")
+-        while(name in folders):
+-            name = input("Template name cannot exist already: ")
+-        copyFolder(os.getcwd(), os.path.join(templateDir, name))
+-        print("create Template")
+-    elif (FollowArgs["-T"] == '-r'):
+-        printNice(folders)
+-        selection = folders[getSelection(folders)]
+-        delete_directory(os.path.join(templateDir, selection))
+-        print(f"remove template: {selection}")
+-    else :
+-        print("Please enter a valid T tag")
+-
+-def PrintHelp():
+-    print("Automatic Meson Compiler Application")
+-    print("Designed to work with blues & Delici0us setup")
+-    print("Arguments:")
+-    print("    -ms amount     Max search depth for meson.build. 5 by default, will be replaced by amount")
+-    print("    --help         Display help message")
+-    print("    -T             Switch to template mode")
+-    print("         -g             copy selected template to current dir")
+-    print("                        if followed by a number skips selection process")
+-    print("         -c             add current dir to templates")
+-    print("         -r             select template to remove")
+-    print("    -s             Run full reconfiguration")
+-    print("    -r             Compile in release mode")
+-    print("    -d             Compile in debug mode")
+-    print("    -ne            Just compile, don't execute")
+-    print("    -nc            Don't compile, just run")
+-    print("    -ni            Don't install to the output dir")
+-    print("                   If both -ne and -nc are present, nothing will compile or run")
+-    print("    -nb            Disable separation between building/compilation and execution")
+-    print("    -c             Clear terminal before execution")
+-    print("    -m             Move terminal to output path")
+-    print("    -Ab            Toggle all following args for the meson build")
+-    print("    -Ac            Toggle all following args for the meson compile")
+-    print("    -Ae            Toggle all following args for the executable")
+-    print("                   -Ab, -Ac and -Ae will interrupt each other")
+-    print("    -clear         Remove build folder, executable and source cache (in MesonBuildStuff)")
+-
+-if __name__ == "__main__":
+-    GetArgPresent(TriggerArgs)
+-    if TriggerArgs["--help"] or TriggerArgs["-?"]:
+-        PrintHelp()
+-        exit()
+-    GetArgOption(FollowArgs)
+-    basedir = GetMesonFilePath()
+-    snakesdir = GetSnakesDir()
+-    try:
+-        MAXSEARCHLVL = int(FollowArgs['-ms'])
+-        assert MAXSEARCHLVL >= 0
+-    except:
+-        print("Please input a valid integer as maxSearches")
+-        exit()
+-    if TriggerArgs["-T"]:
+-        templating()
++                lines = clangd_path.read_text().splitlines()
++                new_lines = []
++                updated = False
++                for line in lines:
++                    if line.lstrip().startswith('CompilationDatabase:'):
++                        indent = len(line) - len(line.lstrip())
++                        new_lines.append(' ' * indent + f"CompilationDatabase: /{rel_build}")
++                        updated = True
++                    else:
++                        new_lines.append(line)
++                if not updated:
++                    new_lines.append(f"CompilationDatabase: {rel_build}")
++                clangd_path.write_text("\n".join(new_lines))
++            except Exception as e:
++                print(f"Failed to update .clangd: {e}")
++
++        ##########################
++        if subprocess.call(cmd): sys.exit(1)
+     else:
+-        main()
++        if need_reconfigure(basedir, snakesdir):
++            print("New sources detected, reconfiguring...")
++            if subprocess.call(['meson', 'setup', '--reconfigure', str(build_dir)]):
++                sys.exit(1)
++
++    # Compile
++    if not args.nc:
++        if subprocess.call(['ninja', '-C', str(build_dir)] + args.Ac): sys.exit(2)
++        if not args.ni:
++            if subprocess.call(['meson', 'install', '-C', str(build_dir)]): sys.exit(3)
++
++    # Execute
++    exe_path = build_dir / output_sub / exe_name
++    if not args.ne:
++        if args.c:
++            os.system('cls' if os.name=='nt' else 'clear')
++        if args.m:
++            clip = f"cd {exe_path.parent}\n{exe_path} {' '.join(args.Ae)}"
++            os.system(f'echo {clip} | clip')
++            print("Commands copied to clipboard.")
++            sys.exit(0)
++        try:
++            ret = subprocess.call([str(exe_path)] + args.Ae)
++            sys.exit(ret)
++        except KeyboardInterrupt:
++            sys.exit(0)
++
++if __name__ == '__main__':
++    signal.signal(signal.SIGINT, handle_sigint)
++    main()

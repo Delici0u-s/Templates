@@ -165,8 +165,6 @@ Template mode:
     parser.add_argument('-ms', type=int, default=DEFAULT_MAX_SEARCH,
                         help='Max meson.build search depth')
     parser.add_argument('-s', action='store_true', help='Full meson setup')
-    parser.add_argument('-r', action='store_true', help='Release build')
-    parser.add_argument('-d', action='store_true', help='Debug build')
     parser.add_argument('-ne', action='store_true', help="Don't execute")
     parser.add_argument('-nc', action='store_true', help="Don't compile")
     parser.add_argument('-ni', action='store_true', help="Don't install")
@@ -224,8 +222,7 @@ Template mode:
     if args.s or not build_dir.exists():
         if not build_dir.exists():
             write_cached(basedir, current_sources(snakesdir))
-        mode = '--buildtype=release' if args.r else ('--buildtype=debug' if args.d else '')
-        cmd = ['meson', 'setup', str(build_dir), '--wipe', mode] + args.Ab
+        cmd = ['meson', 'setup', str(build_dir), '--wipe'] + args.Ab
         # VSCode launch.json: use workspace-relative path
         rel_exe = (build_dir / output_sub / exe_name).relative_to(basedir)
         update_json(basedir / '.vscode' / 'launch.json', 'program', f"${{workspaceFolder}}/{rel_exe}")
