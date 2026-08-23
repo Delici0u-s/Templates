@@ -1,0 +1,1 @@
+"""meson build pipeline plugin."""

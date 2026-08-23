@@ -1,5 +1,0 @@
-/* hide every folder named "private" (change the name as needed) */
-.nav-folder-title[data-path$="/_RAW_attachments"],
-.nav-folder-title[data-path$="/_RAW_attachments"]+.nav-folder-children {
-  display: none !important;
-}

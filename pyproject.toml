@@ -1,0 +1,82 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amca"
+version = "3.0.0"
+description = "Directory-aware auto-executer: run the right build/script pipeline for whatever project you happen to be standing in"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Delicious", email = "singularitwenty@proton.me" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Environment :: Console",
+    "Topic :: Software Development :: Build Tools",
+]
+# Deliberately zero required runtime dependencies: amca must never fail to
+# start because a third-party wheel is broken. Interactive pickers degrade to
+# a numbered stdin prompt when InquirerPy is absent; plugin installation from
+# GitHub degrades to a clear error when requests is absent.
+dependencies = []
+
+[project.optional-dependencies]
+# Arrow-key selection menus for `amcapl enable`, `amca args`, etc.
+tui = ["InquirerPy>=0.3"]
+# Remote plugin sources (`amcapl install` from a GitHub repo).
+remote = ["requests>=2.31"]
+all = ["InquirerPy>=0.3", "requests>=2.31"]
+dev = ["pytest>=8", "mypy>=1.8", "ruff>=0.5"]
+
+[project.scripts]
+amca = "amca.cli.amca_cli:main"
+amcapl = "amca.cli.amcapl_cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Delici0u-s/Amca"
+Issues = "https://github.com/Delici0u-s/Amca/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["amca*"]
+
+[tool.setuptools.package-data]
+# Preset plugins ship inside the wheel so `amcapl install meson` works offline.
+# The glob must be broad: a preset is copied to disk verbatim, so *any* file it
+# carries has to survive packaging. A narrow extension list silently dropped
+# meson.build.template and left `--print-template` broken in the wheel while
+# it still worked from a source checkout.
+"amca.presets" = ["**/*"]
+
+[tool.setuptools.exclude-package-data]
+# The broad presets glob above would otherwise sweep up stale bytecode from a
+# local checkout and ship it to users.
+"*" = ["**/__pycache__/*", "**/*.pyc"]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+ignore = [
+    # Catching bare Exception is deliberate at the plugin boundary: third-party
+    # plugin code must not be able to take down the whole run.
+    "BLE001",
+    # proc.run intentionally mirrors subprocess.run; check= is the caller's call.
+    "PLW1510",
+]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["InquirerPy", "InquirerPy.*", "requests", "requests.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
