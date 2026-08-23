@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "amca"
-version = "3.0.0"
+# Single-sourced from src/amca/__init__.py so a release cannot ship a wheel
+# whose metadata and `amca --version` disagree. Bump it in exactly one place.
+dynamic = ["version"]
 description = "Directory-aware auto-executer: run the right build/script pipeline for whatever project you happen to be standing in"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,6 +40,9 @@ amcapl = "amca.cli.amcapl_cli:main"
 [project.urls]
 Homepage = "https://github.com/Delici0u-s/Amca"
 Issues = "https://github.com/Delici0u-s/Amca/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "amca.__version__" }
 
 [tool.setuptools.packages.find]
 # Two roots: the application lives in src/, the bundled plugins live in

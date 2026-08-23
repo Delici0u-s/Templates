@@ -1,0 +1,21 @@
+# What goes into the sdist beyond what setuptools picks up automatically.
+#
+# Auto-inclusion covers pyproject.toml, the packages named in
+# [tool.setuptools.packages.find], and files matching test*.py. That silently
+# dropped tests/e2e.py (wrong prefix) and tests/fixtures/ (not a package), so
+# an sdist looked complete and then could not run its own test suite. Anything
+# a downstream packager needs to verify the build has to be listed here.
+
+include LICENSE
+include README.md
+include RELEASING.md
+
+recursive-include tests *.py
+recursive-include plugins *
+
+# Never ship build or editor droppings.
+global-exclude *.py[cod]
+global-exclude __pycache__
+prune .git
+prune build
+prune dist
