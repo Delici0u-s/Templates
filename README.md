@@ -37,25 +37,19 @@ from starting. Individual plugins may have their own.
 ## Install
 
 ```bash
-uv tool install --python 3.13 --with 'amca[all]' amca
+uv tool install --python 3.13 --with 'amca' amca
 ```
 
 `--python` pins a `uv`-managed interpreter so a distro Python upgrade cannot
 break amca. Alternatives:
 
 ```bash
-pipx install 'amca[all]'
-pip install --user 'amca[all]'
+pipx install 'amca'
+pip install --user 'amca'
 
 # to track main instead of the last release:
-uv tool install --python 3.13 --with 'amca[all]' git+https://github.com/Delici0u-s/amca
+uv tool install --python 3.13 --with 'amca' git+https://github.com/Delici0u-s/amca
 ```
-
-| extra | gives you | without it |
-|---|---|---|
-| `tui` | arrow-key selection menus (InquirerPy) | numbered stdin prompts |
-| `remote` | installing plugins from GitHub (requests) | bundled plugins only |
-| `all` | both | |
 
 Upgrade with `uv tool upgrade amca` or `pipx reinstall amca`. There is no build
 step and nothing to recompile after a system update.
