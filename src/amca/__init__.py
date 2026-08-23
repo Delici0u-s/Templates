@@ -2,7 +2,7 @@
 
 Importing this package has no side effects: no config is read, no directory is
 scanned, no prompt is shown. Everything that touches the filesystem happens
-inside an explicitly constructed :class:`amca.core.context.AmcaContext`.
+inside an explicitly constructed :class:`amca.core.context.amcaContext`.
 
 That is a deliberate constraint, not an accident. In the previous version,
 importing ``impl.util.globals`` walked the directory tree and could block on an

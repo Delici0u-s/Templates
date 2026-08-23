@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..api import Plugin, PluginContext, PluginError
-from ..core.context import AmcaContext
+from ..core.context import amcaContext
 from ..core.proc import ToolMissing
 from .argfiles import read_arg_file
 from .loader import DiscoveredPlugin, PluginLoadError, discover, load_plugin
@@ -35,7 +35,7 @@ class Registry:
 
     __slots__ = ("_entries", "ctx")
 
-    def __init__(self, ctx: AmcaContext) -> None:
+    def __init__(self, ctx: amcaContext) -> None:
         self.ctx = ctx
         enabled = {str(name) for name in ctx.config.get_list("plugins.enabled")}
         self._entries = [
@@ -79,7 +79,7 @@ class Registry:
         if root is not None:
             plugin_dir = root.plugins_dir / name
             plugin_dir.mkdir(parents=True, exist_ok=True)
-            # Per-project defaults from .Amca/args/<name>.args come first, so
+            # Per-project defaults from .amca/args/<name>.args come first, so
             # anything typed on the command line can still override them.
             defaults = read_arg_file(root.args_dir / f"{name}.args")
             if defaults and self.ctx.config.get_bool("core.debug"):

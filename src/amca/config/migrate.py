@@ -1,6 +1,6 @@
 """Importing an amca 2.x configuration.
 
-The old layout was two JSON files under ``<root>/Amca_config/``:
+The old layout was two JSON files under ``<root>/amca_config/``:
 ``general_conf.json`` and ``plugins/plugin_conf.json``. Keys were renamed in
 3.0 (several booleans became enums), so this is an explicit table rather than
 a copy.
@@ -80,12 +80,12 @@ class MigrationPlan:
 
 
 def find_legacy_config(search: list[Path]) -> Path | None:
-    """Locate an ``Amca_config`` directory from a 2.x install."""
+    """Locate an ``amca_config`` directory from a 2.x install."""
     for base in search:
-        candidate = base / "Amca_config"
+        candidate = base / "amca_config"
         if (candidate / "general_conf.json").is_file():
             return candidate
-        if base.name == "Amca_config" and (base / "general_conf.json").is_file():
+        if base.name == "amca_config" and (base / "general_conf.json").is_file():
             return base
     return None
 
@@ -144,7 +144,7 @@ def plan_migration(legacy_dir: Path) -> MigrationPlan:
     if sources is not None and "builtin" not in sources:
         plan.changes["plugins.sources"] = ["builtin", *sources]
 
-    # 2.x stored plugins under <config>/Amca_config/plugins/installed_plugins.
+    # 2.x stored plugins under <config>/amca_config/plugins/installed_plugins.
     installed = legacy_dir / "plugins" / "installed_plugins"
     if installed.is_dir() and "plugins.dir" not in plan.changes:
         plan.changes["plugins.dir"] = str(installed.resolve())

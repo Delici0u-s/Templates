@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from ...core.context import AmcaContext
+from ...core.context import amcaContext
 from ...core.paths import remove_tree
 from ..prompt import confirm
 
@@ -37,7 +37,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     root.set_defaults(handler=_show)
 
 
-def _new(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _new(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     existing = ctx.find_root()
     if existing is not None and existing.path == ctx.cwd:
         print(f"already an amca root: {existing.marker}")
@@ -49,7 +49,7 @@ def _new(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) ->
     return 0
 
 
-def _remove(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _remove(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     root = ctx.find_root()
     if root is None:
         print("no amca root found")
@@ -62,7 +62,7 @@ def _remove(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]])
     return 0
 
 
-def _show(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _show(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     root = ctx.find_root()
     if root is None:
         print(f"no amca root within {ctx.config.get_int('root.search_depth')} "
@@ -73,7 +73,7 @@ def _show(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -
     return 0
 
 
-def _ignore(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _ignore(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     ignored = {str(p) for p in ctx.config.get_list("root.ignored_paths")}
     ignored.add(str(ctx.cwd))
     ctx.config.set_persistent("root.ignored_paths", sorted(ignored))
@@ -82,7 +82,7 @@ def _ignore(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]])
     return 0
 
 
-def _unignore(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _unignore(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     ignored = {str(p) for p in ctx.config.get_list("root.ignored_paths")}
     if str(ctx.cwd) not in ignored:
         print(f"{ctx.cwd} was not ignored")
@@ -94,7 +94,7 @@ def _unignore(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]
     return 0
 
 
-def _clear_ignored(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _clear_ignored(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     count = len(ctx.config.get_list("root.ignored_paths"))
     ctx.config.set_persistent("root.ignored_paths", [])
     ctx.config.save()

@@ -147,7 +147,7 @@ _FIELDS: tuple[Field, ...] = (
     Field("core.editor", "str", "",
           "Editor for `amca args`. Empty means $VISUAL, then $EDITOR, then nano."),
 
-    Field("root.folder_name", "str", ".Amca",
+    Field("root.folder_name", "str", ".amca",
           "Name of the marker directory that identifies an amca root.",
           validate=_validate_folder_name),
     Field("root.search_depth", "int", 5,
@@ -190,7 +190,7 @@ _FIELDS: tuple[Field, ...] = (
     Field("plugins.announce_loaded", "bool", False,
           "Log a line each time a plugin is selected and run."),
     Field("plugins.sources", "list",
-          ["github:Delici0u-s/Amca@main:plugins/amca_presets"],
+          ["github:Delici0u-s/amca@main:plugins/amca_presets"],
           "Where `amcapl install` looks for plugins. 'builtin' means the copies "
           "shipped inside the amca wheel; 'github:owner/repo@ref:path' is remote; "
           "an absolute path is a local directory."),
@@ -201,6 +201,6 @@ SCHEMA: dict[str, Field] = {f.key: f for f in _FIELDS}
 # 'builtin' first: installing a preset should work with no network by default.
 SCHEMA["plugins.sources"] = Field(
     "plugins.sources", "list",
-    ["builtin", "github:Delici0u-s/Amca@main:plugins/amca_presets"],
+    ["builtin", "github:Delici0u-s/amca@main:plugins/amca_presets"],
     SCHEMA["plugins.sources"].help,
 )

@@ -38,8 +38,8 @@ amca = "amca.cli.amca_cli:main"
 amcapl = "amca.cli.amcapl_cli:main"
 
 [project.urls]
-Homepage = "https://github.com/Delici0u-s/Amca"
-Issues = "https://github.com/Delici0u-s/Amca/issues"
+Homepage = "https://github.com/Delici0u-s/amca"
+Issues = "https://github.com/Delici0u-s/amca/issues"
 
 [tool.setuptools.dynamic]
 version = { attr = "amca.__version__" }

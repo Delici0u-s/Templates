@@ -8,7 +8,7 @@ from collections.abc import Callable, Sequence
 
 from .. import __version__
 from ..config.schema import SCHEMA
-from ..core.context import AmcaContext
+from ..core.context import amcaContext
 
 __all__ = ["add_global_flags", "apply_global_flags", "build_context", "pre_scan", "run_entry"]
 
@@ -64,11 +64,11 @@ def add_global_flags(parser: argparse.ArgumentParser, *, marker_prefix: str = "-
                        choices=SCHEMA["plugins.on_missing"].choices)
 
 
-def build_context(args: argparse.Namespace) -> AmcaContext:
-    return AmcaContext(config_dir_override=getattr(args, "config_dir", None))
+def build_context(args: argparse.Namespace) -> amcaContext:
+    return amcaContext(config_dir_override=getattr(args, "config_dir", None))
 
 
-def apply_global_flags(ctx: AmcaContext, args: argparse.Namespace) -> None:
+def apply_global_flags(ctx: amcaContext, args: argparse.Namespace) -> None:
     """Push flag values into the session layer, then re-sync the logger."""
     for attribute, key in FLAG_TO_KEY.items():
         value = getattr(args, attribute, None)
@@ -121,10 +121,10 @@ def pre_scan(argv: Sequence[str]) -> dict[str, str]:
     return found
 
 
-def first_run_completion_notice(ctx: AmcaContext) -> None:
+def first_run_completion_notice(ctx: amcaContext) -> None:
     """Install shell completion on the first interactive run, and say so once.
 
-    Placed here rather than in AmcaContext because it is a property of being a
+    Placed here rather than in amcaContext because it is a property of being a
     CLI, not of the context: importing amca as a library must never write to
     someone's home directory.
     """

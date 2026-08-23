@@ -1,4 +1,4 @@
-"""Per-project default arguments: ``<root>/.Amca/args/<plugin>.args``.
+"""Per-project default arguments: ``<root>/.amca/args/<plugin>.args``.
 
 One argument per line, ``#`` comments and blank lines ignored. The tokens are
 placed *before* whatever the user typed after the plugin's marker, so a project

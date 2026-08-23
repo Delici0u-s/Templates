@@ -7,7 +7,7 @@ import sys
 from collections.abc import Sequence
 
 from ..config.store import ConfigError
-from ..core.context import AmcaContext
+from ..core.context import amcaContext
 from ..core.paths import remove_tree
 from ..plugins.registry import Registry
 from ..plugins.sources import Source, parse_source
@@ -81,7 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _sources(ctx: AmcaContext, override: str | None) -> list[Source]:
+def _sources(ctx: amcaContext, override: str | None) -> list[Source]:
     specs = [override] if override else [str(s) for s in ctx.config.get_list("plugins.sources")]
     resolved: list[Source] = []
     for spec in specs:
@@ -92,7 +92,7 @@ def _sources(ctx: AmcaContext, override: str | None) -> list[Source]:
     return resolved
 
 
-def _pick(ctx: AmcaContext, requested: list[str], options: list[str], message: str) -> list[str] | None:
+def _pick(ctx: amcaContext, requested: list[str], options: list[str], message: str) -> list[str] | None:
     """Resolve an explicit list, or fall back to an interactive picker."""
     if requested:
         unknown = [name for name in requested if name not in options]
@@ -113,14 +113,14 @@ def _pick(ctx: AmcaContext, requested: list[str], options: list[str], message: s
     return chosen
 
 
-def _set_enabled(ctx: AmcaContext, names: list[str]) -> None:
+def _set_enabled(ctx: amcaContext, names: list[str]) -> None:
     ctx.config.set_persistent("plugins.enabled", sorted(set(names)))
     ctx.config.save()
 
 
 # ── Commands ─────────────────────────────────────────────────────────────────
 
-def _list(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _list(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     registry = Registry(ctx)
     entries = registry.entries
     prefix = ctx.config.get_str("plugins.marker_prefix")
@@ -169,7 +169,7 @@ def _list(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -
     return 0
 
 
-def _enable(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _enable(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     registry = Registry(ctx)
     candidates = [name for name in registry.names() if name not in registry.enabled_names()]
     if not args.plugins and not candidates:
@@ -190,7 +190,7 @@ def _enable(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]])
     return 0
 
 
-def _disable(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _disable(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     registry = Registry(ctx)
     enabled = registry.enabled_names()
     if not args.plugins and not enabled:
@@ -207,7 +207,7 @@ def _disable(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]
     return 0
 
 
-def _toggle(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _toggle(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     registry = Registry(ctx)
     if not args.plugins and not registry.names():
         print(f"no plugins installed in {ctx.plugins_dir}")
@@ -227,7 +227,7 @@ def _toggle(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]])
     return 0
 
 
-def _install(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _install(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     sources = _sources(ctx, args.source)
     if not sources:
         print("amcapl: no usable plugin sources configured")
@@ -294,7 +294,7 @@ def _install(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]
     return 0 if newly else 1
 
 
-def _uninstall(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _uninstall(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     registry = Registry(ctx)
     if not args.plugins and not registry.names():
         print(f"no plugins installed in {ctx.plugins_dir}")
@@ -315,7 +315,7 @@ def _uninstall(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str
     return 0
 
 
-def _update(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _update(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     registry = Registry(ctx)
     installed = registry.names()
     requested = [] if args.plugins in ([], ["*"]) else args.plugins
@@ -330,7 +330,7 @@ def _update(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]])
     return _install(ctx, namespace, {})
 
 
-def _call(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _call(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     registry = Registry(ctx)
     name = args.plugin or select("Call which plugin?", registry.names())
     if name is None:
@@ -365,7 +365,7 @@ def _main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
 
     try:
-        ctx = AmcaContext(config_dir_override=args.config_dir)
+        ctx = amcaContext(config_dir_override=args.config_dir)
         common.apply_global_flags(ctx, args)
     except ConfigError as exc:
         print(f"amcapl: {exc}", file=sys.stderr)

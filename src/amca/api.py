@@ -42,7 +42,7 @@ from .core.dirparse import DirInfo, DirParser
 from .core.logger import Logger
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .core.context import AmcaRoot
+    from .core.context import amcaRoot
 
 __all__ = [
     "DirInfo",
@@ -68,9 +68,9 @@ class PluginContext:
     #: Directory amca was invoked from.
     working_dir: DirInfo
     #: The resolved amca root, or None when the user is outside a project.
-    root: AmcaRoot | None
+    root: amcaRoot | None
     #: This plugin's private per-project directory
-    #: (``<root>/.Amca/plugins/<name>/``), or None when there is no root.
+    #: (``<root>/.amca/plugins/<name>/``), or None when there is no root.
     #: Created before the plugin runs. Put caches and per-project state here.
     plugin_dir: Path | None
     #: Shared directory reader — use this instead of ``Path.iterdir`` so

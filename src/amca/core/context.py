@@ -1,6 +1,6 @@
 """The object every command and plugin receives.
 
-Constructing an ``AmcaContext`` reads config and nothing else. Root discovery is
+Constructing an ``amcaContext`` reads config and nothing else. Root discovery is
 lazy and *never* prompts on its own — a caller that wants the interactive
 "create a root here?" behaviour asks for it explicitly with
 ``find_root(interactive=True)``.
@@ -24,16 +24,16 @@ from . import paths
 from .dirparse import DirInfo, DirParser
 from .logger import Logger
 
-__all__ = ["AmcaContext", "AmcaRoot"]
+__all__ = ["amcaContext", "amcaRoot"]
 
 
 @dataclass(frozen=True, slots=True)
-class AmcaRoot:
+class amcaRoot:
     """A resolved amca root."""
 
     #: Directory containing the marker folder (the project root).
     path: Path
-    #: The marker folder itself, e.g. ``<path>/.Amca``.
+    #: The marker folder itself, e.g. ``<path>/.amca``.
     marker: Path
 
     @property
@@ -45,7 +45,7 @@ class AmcaRoot:
         return self.marker / "args"
 
 
-class AmcaContext:
+class amcaContext:
     """Shared state for one amca invocation."""
 
     __slots__ = ("_root", "_root_done", "config", "config_dir", "cwd", "dirs", "log", "state_dir")
@@ -61,7 +61,7 @@ class AmcaContext:
         self.config = ConfigStore.open(self.config_dir)
         self.dirs = DirParser()
         self.cwd = (cwd or Path.cwd()).resolve()
-        self._root: AmcaRoot | None = None
+        self._root: amcaRoot | None = None
         self._root_done = False
 
         self.log = Logger(
@@ -93,7 +93,7 @@ class AmcaContext:
 
     # ── Root discovery ──────────────────────────────────────────────────────
 
-    def find_root(self, *, interactive: bool = False) -> AmcaRoot | None:
+    def find_root(self, *, interactive: bool = False) -> amcaRoot | None:
         """Walk up from cwd looking for the marker folder.
 
         Complexity: O(depth) directory reads, all cached in the DirParser.
@@ -112,7 +112,7 @@ class AmcaContext:
         for _ in range(max(1, depth)):
             info = self.dirs.parse_dir(current)
             if info.readable and marker_name in info.folders:
-                self._root = AmcaRoot(current, current / marker_name)
+                self._root = amcaRoot(current, current / marker_name)
                 break
             if current.parent == current:
                 break
@@ -124,7 +124,7 @@ class AmcaContext:
         self._root_done = True
         return self._root
 
-    def _maybe_create_root(self, marker_name: str) -> AmcaRoot | None:
+    def _maybe_create_root(self, marker_name: str) -> amcaRoot | None:
         if not self.config.get_bool("root.ask_to_create"):
             return None
         if not (sys.stdin.isatty() and sys.stdout.isatty()):
@@ -145,13 +145,13 @@ class AmcaContext:
 
         return self.create_root(self.cwd)
 
-    def create_root(self, path: Path) -> AmcaRoot:
+    def create_root(self, path: Path) -> amcaRoot:
         marker = (path / self.config.get_str("root.folder_name")).resolve()
         marker.mkdir(parents=True, exist_ok=True)
         (marker / "plugins").mkdir(exist_ok=True)
         (marker / "args").mkdir(exist_ok=True)
         self.dirs.invalidate(path)
-        root = AmcaRoot(path.resolve(), marker)
+        root = amcaRoot(path.resolve(), marker)
         self._root = root
         self._root_done = True
         return root

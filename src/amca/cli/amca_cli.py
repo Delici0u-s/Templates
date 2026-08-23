@@ -8,7 +8,7 @@ from collections.abc import Sequence
 
 from ..config.schema import SCHEMA
 from ..config.store import ConfigError
-from ..core.context import AmcaContext
+from ..core.context import amcaContext
 from ..plugins.markers import UnknownMarker, split_argv
 from ..plugins.registry import Registry
 from . import common
@@ -100,7 +100,7 @@ def build_parser(
     return parser
 
 
-def _handle_plugins(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _handle_plugins(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     registry = Registry(ctx)
     prefix = ctx.config.get_str("plugins.marker_prefix")
     entries = registry.entries
@@ -139,7 +139,7 @@ def _main(argv: Sequence[str] | None = None) -> int:
     pre = common.pre_scan(raw)
 
     try:
-        ctx = AmcaContext(config_dir_override=pre.get("config-dir"))
+        ctx = amcaContext(config_dir_override=pre.get("config-dir"))
     except ConfigError as exc:
         print(f"amca: {exc}", file=sys.stderr)
         return 2

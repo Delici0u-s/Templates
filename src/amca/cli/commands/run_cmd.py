@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import argparse
 
-from ...core.context import AmcaContext
+from ...core.context import amcaContext
 from ...plugins.registry import Registry
 
 __all__ = ["handle"]
 
 
 def handle(
-    ctx: AmcaContext,
+    ctx: amcaContext,
     args: argparse.Namespace,
     plugin_args: dict[str, list[str]],
 ) -> int:

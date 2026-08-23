@@ -1,9 +1,9 @@
-# Amca
+# amca
 
 **One command that knows what to do in whatever directory you are standing in.**
 
 You have a C project built with meson, a Python thing with a build script, and
-a dozen repos that each need some slightly different incantation. Amca is the
+a dozen repos that each need some slightly different incantation. amca is the
 command you type in all of them. It looks at the directory, works out which of
 its plugins apply, and runs them.
 
@@ -23,7 +23,7 @@ $ amca
 [autoscript] sh /home/you/code/scraper/amca_auto_script.sh
 ```
 
-Same keystroke. Amca itself does almost nothing — it decides *which* plugin
+Same keystroke. amca itself does almost nothing — it decides *which* plugin
 applies and hands it the arguments. The behaviour lives in plugins, and you
 write your own.
 
@@ -41,7 +41,7 @@ needs `ninja` and a compiler.
 ## Install
 
 ```bash
-uv tool install --python 3.13 --with 'amca[all]' git+https://github.com/Delici0u-s/Amca
+uv tool install --python 3.13 --with 'amca[all]' git+https://github.com/Delici0u-s/amca
 ```
 
 `--python` pins a `uv`-managed interpreter so a distro Python upgrade cannot
@@ -75,7 +75,7 @@ Tab-completion installs itself the first time you run amca interactively. See
 Optionally mark a project root:
 
 ```bash
-amca new     # creates .Amca/ for per-project plugin state and argument files
+amca new     # creates .amca/ for per-project plugin state and argument files
 ```
 
 Without a root, amca uses the current directory. With one, `amca` works from
@@ -86,7 +86,7 @@ any subdirectory of the project.
 ## Plugins
 
 A plugin decides whether it applies (`should_load`) and then does the work
-(`load`). Amca runs every enabled plugin that applies.
+(`load`). amca runs every enabled plugin that applies.
 
 ```bash
 amcapl list                    # what is installed, and its marker
@@ -139,7 +139,7 @@ shell expands the marker before amca sees it. `config set` warns if you try.
 
 ### Per-project default arguments
 
-`.Amca/args/<plugin>.args`, one argument per line, `#` for comments. They are
+`.amca/args/<plugin>.args`, one argument per line, `#` for comments. They are
 placed before anything you type, so a project can pin `--buildtype=debug` while
 a command-line flag still overrides it.
 
@@ -320,7 +320,7 @@ Every setting has an env var: `plugins.marker_prefix` →
 | `core.debug` | `false` | extra diagnostics and full tracebacks |
 | `core.greet` | `false` | print a greeting on every invocation |
 | `core.editor` | `$VISUAL`/`$EDITOR`/`nano` | editor for `amca args` |
-| `root.folder_name` | `.Amca` | marker directory identifying a project root |
+| `root.folder_name` | `.amca` | marker directory identifying a project root |
 | `root.search_depth` | `5` | how far up to look for it |
 | `root.ask_to_create` | `true` | offer to create one (TTY only) |
 | `root.ignored_paths` | `[]` | where not to ask; `amca root ignore` |
@@ -443,7 +443,7 @@ stale `src/amca/presets/` is left behind.
 
 ## What changed in 3.0
 
-Amca 2.x shipped as a PyInstaller `--onefile` binary rebuilt at install time.
+amca 2.x shipped as a PyInstaller `--onefile` binary rebuilt at install time.
 That put a private copy of CPython on `LD_LIBRARY_PATH` for every child
 process, so after a distro Python upgrade the system `meson` loaded amca's
 stale `libpython` and died with `internal Python C API version mismatch`. It
@@ -466,7 +466,7 @@ impossible. Along the way:
 ## Development
 
 ```bash
-git clone https://github.com/Delici0u-s/Amca && cd Amca
+git clone https://github.com/Delici0u-s/amca && cd amca
 pip install -e '.[all,dev]'
 
 pytest -q                    # 79 unit tests, under a second

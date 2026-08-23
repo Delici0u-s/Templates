@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from ...core.context import AmcaContext
+from ...core.context import amcaContext
 from .. import completions as comp
 
 __all__ = ["handle", "register"]
@@ -49,7 +49,7 @@ def _resolve(shell: str | None) -> str | None:
     return shell or comp.detect_shell()
 
 
-def handle(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def handle(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     if args.status:
         return _status()
 

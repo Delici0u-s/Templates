@@ -1,6 +1,6 @@
 """``amca args`` — edit the per-project default arguments for a plugin.
 
-Each enabled plugin can have ``<root>/.Amca/args/<plugin>.args``: one argument
+Each enabled plugin can have ``<root>/.amca/args/<plugin>.args``: one argument
 per line, ``#`` comments ignored. Those lines are prepended to whatever the
 user types after the plugin's marker, so a project can pin ``--buildtype=debug``
 without anyone having to remember it.
@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 
 from ...core import proc
-from ...core.context import AmcaContext
+from ...core.context import amcaContext
 from ...plugins.argfiles import write_template
 from ...plugins.registry import Registry
 from ..prompt import select
@@ -30,7 +30,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
 
 
 
-def handle(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def handle(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     root = ctx.find_root()
     if root is None:
         print("no amca root here — create one with `amca new`")

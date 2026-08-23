@@ -18,7 +18,7 @@ from pathlib import Path
 
 from ... import __version__
 from ...core import proc
-from ...core.context import AmcaContext
+from ...core.context import amcaContext
 from ...plugins.registry import Registry
 
 __all__ = ["handle", "register"]
@@ -50,7 +50,7 @@ def _line(status: str, label: str, detail: str = "") -> None:
     print(f"  [{status}] {label}" + (f"  —  {detail}" if detail else ""))
 
 
-def handle(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def handle(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     problems = 0
 
     print(f"amca {__version__}")

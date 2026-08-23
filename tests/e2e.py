@@ -393,12 +393,12 @@ def c6(box: Sandbox) -> list[str]:
                   "run / r / bare are not equivalent")
 
 
-@case("C7", "single", ".Amca/args/<plugin>.args defaults are prepended")
+@case("C7", "single", ".amca/args/<plugin>.args defaults are prepended")
 def c7(box: Sandbox) -> list[str]:
     box.add_probe("probe")
     box.enable("probe")
     box.make_root()
-    args_file = box.project / ".Amca" / "args" / "probe.args"
+    args_file = box.project / ".amca" / "args" / "probe.args"
     args_file.parent.mkdir(parents=True, exist_ok=True)
     args_file.write_text("# comment\n--from-file\n\n  --spaced  \n", encoding="utf-8")
     record = box.run("---probe", "--from-cli").probe("probe")
@@ -1306,7 +1306,7 @@ def j4(box: Sandbox) -> list[str]:
     box.enable("probe")
     run = box.run(timeout=10)
     return (expect_code(run, 0) + expect_not_in(run, "would you like")
-            + expect(not (box.project / ".Amca").exists(), "a root was created unprompted"))
+            + expect(not (box.project / ".amca").exists(), "a root was created unprompted"))
 
 
 @case("J5", "root", "root ignore / unignore / clear-ignored")

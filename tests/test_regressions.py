@@ -13,7 +13,7 @@ import pytest
 
 from amca.config.schema import SCHEMA, ConfigError
 from amca.config.store import ConfigStore
-from amca.core.context import AmcaContext
+from amca.core.context import amcaContext
 from amca.plugins.markers import UnknownMarker, split_argv
 
 
@@ -149,27 +149,27 @@ class TestContext:
     `amca --help` could block on an interactive prompt."""
 
     def test_construction_does_not_prompt_or_scan(self, tmp_path: Path) -> None:
-        ctx = AmcaContext(config_dir_override=tmp_path / "cfg", cwd=tmp_path)
+        ctx = amcaContext(config_dir_override=tmp_path / "cfg", cwd=tmp_path)
         assert ctx._root_done is False
 
     def test_root_found_from_subdirectory(self, tmp_path: Path) -> None:
-        (tmp_path / ".Amca").mkdir()
+        (tmp_path / ".amca").mkdir()
         deep = tmp_path / "a" / "b" / "c"
         deep.mkdir(parents=True)
-        ctx = AmcaContext(config_dir_override=tmp_path / "cfg", cwd=deep)
+        ctx = amcaContext(config_dir_override=tmp_path / "cfg", cwd=deep)
         root = ctx.find_root()
         assert root is not None and root.path == tmp_path.resolve()
 
     def test_search_depth_is_honoured(self, tmp_path: Path) -> None:
-        (tmp_path / ".Amca").mkdir()
+        (tmp_path / ".amca").mkdir()
         deep = tmp_path / "a" / "b" / "c" / "d" / "e"
         deep.mkdir(parents=True)
-        ctx = AmcaContext(config_dir_override=tmp_path / "cfg", cwd=deep)
+        ctx = amcaContext(config_dir_override=tmp_path / "cfg", cwd=deep)
         ctx.config.set_session("root.search_depth", 2)
         assert ctx.find_root() is None
 
     def test_non_interactive_never_blocks(self, tmp_path: Path) -> None:
-        ctx = AmcaContext(config_dir_override=tmp_path / "cfg", cwd=tmp_path)
+        ctx = amcaContext(config_dir_override=tmp_path / "cfg", cwd=tmp_path)
         # stdin is not a TTY under pytest, so this must return rather than read.
         assert ctx.find_root(interactive=True) is None
 

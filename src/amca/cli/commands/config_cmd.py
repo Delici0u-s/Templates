@@ -16,7 +16,7 @@ import sys
 from ...config.schema import SCHEMA
 from ...config.store import ConfigError
 from ...core import paths, proc
-from ...core.context import AmcaContext
+from ...core.context import amcaContext
 from ..prompt import confirm
 
 __all__ = ["register"]
@@ -68,7 +68,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
 
     migrate = inner.add_parser("migrate", help="import settings from an amca 2.x install")
     migrate.add_argument("--source", default=None, metavar="DIR",
-                         help="path to the old Amca_config directory")
+                         help="path to the old amca_config directory")
     migrate.add_argument("--dry-run", action="store_true")
     migrate.add_argument("-y", "--yes", action="store_true")
     migrate.set_defaults(handler=_migrate)
@@ -76,7 +76,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser.set_defaults(handler=_list, origin=True, changed=False, as_json=False)
 
 
-def _list(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _list(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     if getattr(args, "keys", False):
         for key in SCHEMA:
             print(key)
@@ -120,7 +120,7 @@ def _list(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -
     return 0
 
 
-def _get(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _get(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     try:
         resolved = ctx.config.resolve(args.key)
     except KeyError:
@@ -130,7 +130,7 @@ def _get(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) ->
     return 0
 
 
-def _set(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _set(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     try:
         ctx.config.set_persistent(args.key, args.value)
     except KeyError:
@@ -162,7 +162,7 @@ def _set(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) ->
     return 0
 
 
-def _unset(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _unset(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     try:
         existed = ctx.config.unset_persistent(args.key)
     except KeyError:
@@ -173,7 +173,7 @@ def _unset(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) 
     return 0
 
 
-def _path(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _path(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     print(ctx.config.path)
     if not ctx.config.path.exists():
         print("  (does not exist yet — it is created on the first `config set`, "
@@ -184,14 +184,14 @@ def _path(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -
     return 0
 
 
-def _edit(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _edit(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     if not ctx.config.path.exists():
         ctx.config.path.parent.mkdir(parents=True, exist_ok=True)
         ctx.config.path.write_text("{}\n", encoding="utf-8")
     return proc.call([ctx.editor, str(ctx.config.path)])
 
 
-def _describe(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _describe(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     keys = [args.key] if args.key else list(SCHEMA)
     if args.key and args.key not in SCHEMA:
         return _unknown_key(args.key)
@@ -222,7 +222,7 @@ def _unknown_key(key: str) -> int:
     return 2
 
 
-def _migrate(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
+def _migrate(ctx: amcaContext, args: argparse.Namespace, _: dict[str, list[str]]) -> int:
     from pathlib import Path
 
     from ...config.migrate import find_legacy_config, plan_migration
@@ -231,8 +231,8 @@ def _migrate(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]
     search = [Path(args.source).expanduser()] if args.source else [
         ctx.config_dir,
         paths.default_config_dir(),
-        Path.home() / ".config" / "Amca",
-        Path.home() / ".Amca",
+        Path.home() / ".config" / "amca",
+        Path.home() / ".amca",
     ]
     legacy = find_legacy_config(search)
     if legacy is None:
