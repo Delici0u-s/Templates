@@ -23,15 +23,26 @@ classifiers = [
 # start because a third-party wheel is broken. Interactive pickers degrade to
 # a numbered stdin prompt when InquirerPy is absent; plugin installation from
 # GitHub degrades to a clear error when requests is absent.
-dependencies = []
+dependencies = [
+    "InquirerPy>=0.3",
+    "requests>=2.31",
+]
 
 [project.optional-dependencies]
-# Arrow-key selection menus for `amcapl enable`, `amca args`, etc.
-tui = ["InquirerPy>=0.3"]
-# Remote plugin sources (`amcapl install` from a GitHub repo).
-remote = ["requests>=2.31"]
-all = ["InquirerPy>=0.3", "requests>=2.31"]
+# No-op aliases so existing `pip install amca[all]` / `[tui]` don't error out.
+tui = []
+remote = []
+all = []
 dev = ["pytest>=8", "mypy>=1.8", "ruff>=0.5"]
+# dependencies = []
+#
+# [project.optional-dependencies]
+# # Arrow-key selection menus for `amcapl enable`, `amca args`, etc.
+# tui = ["InquirerPy>=0.3"]
+# # Remote plugin sources (`amcapl install` from a GitHub repo).
+# remote = ["requests>=2.31"]
+# all = ["InquirerPy>=0.3", "requests>=2.31"]
+# dev = ["pytest>=8", "mypy>=1.8", "ruff>=0.5"]
 
 [project.scripts]
 amca = "amca.cli.amca_cli:main"

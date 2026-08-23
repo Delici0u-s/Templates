@@ -33,7 +33,7 @@ SHELLS = ("bash", "zsh", "fish")
 
 _BASH = r"""# amca bash completion.  Install with:
 #   amca completions bash > ~/.local/share/bash-completion/completions/amca
-#   ln -sf amca ~/.local/share/bash-completion/completions/amcapl
+#   cp that file to .../completions/amcapl as well
 
 _amca_plugins()  { @AMCA@ plugins --names   2>/dev/null; }
 _amca_markers()  { @AMCA@ plugins --markers 2>/dev/null; }
@@ -43,10 +43,14 @@ _amca_global_opts='--help --version --config-dir --debug --log-mode --log-level
 --log-prefix --plugin-dir --depth --editor --marker-prefix --on-error --on-missing'
 
 _amca() {
-    local cur prev
+    local cur prev sub i candidates
+    # bash does not clear COMPREPLY between invocations, and the marker branch
+    # below appends. Without this, one completion leaks into the next.
+    COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
+    # Option values are unambiguous: answer and stop.
     case "$prev" in
         --log-mode)    COMPREPLY=($(compgen -W 'console file both silent' -- "$cur")); return;;
         --log-level)   COMPREPLY=($(compgen -W 'INFO SUCCESS WARN ERROR FATAL' -- "$cur")); return;;
@@ -54,28 +58,9 @@ _amca() {
         --on-error)    COMPREPLY=($(compgen -W 'continue abort' -- "$cur")); return;;
         --on-missing)  COMPREPLY=($(compgen -W 'ignore warn abort' -- "$cur")); return;;
         --config-dir|--plugin-dir) COMPREPLY=($(compgen -d -- "$cur")); return;;
-        get|set|unset|describe) COMPREPLY=($(compgen -W "$(_amca_keys)" -- "$cur")); return;;
-        args|a)        COMPREPLY=($(compgen -W "$(_amca_plugins)" -- "$cur")); return;;
     esac
 
-    # A marker prefix is not necessarily '-', so check markers before options.
-    local markers; markers="$(_amca_markers)"
-    if [[ -n "$markers" ]]; then
-        local m
-        for m in $markers; do
-            if [[ "$m" == "$cur"* ]]; then
-                COMPREPLY+=("$m")
-            fi
-        done
-        [[ ${#COMPREPLY[@]} -gt 0 ]] && return
-    fi
-
-    if [[ "$cur" == -* ]]; then
-        COMPREPLY=($(compgen -W "$_amca_global_opts --dry-run" -- "$cur")); return
-    fi
-
-    local sub=''
-    local i
+    sub=''
     for ((i=1; i<COMP_CWORD; i++)); do
         case "${COMP_WORDS[i]}" in
             run|r|new|n|remove|rm|root|args|a|config|doctor|plugins|completions)
@@ -84,16 +69,34 @@ _amca() {
     done
 
     case "$sub" in
-        config) COMPREPLY=($(compgen -W 'list ls get set unset path edit describe migrate' -- "$cur"));;
-        root)   COMPREPLY=($(compgen -W 'show ignore unignore clear-ignored' -- "$cur"));;
-        completions) COMPREPLY=($(compgen -W 'bash zsh fish' -- "$cur"));;
-        '')     COMPREPLY=($(compgen -W 'run new remove root args config doctor plugins completions' -- "$cur"));;
+        config)
+            # Only inside `config` do these words introduce a key.
+            case "$prev" in
+                get|set|unset|describe)
+                    COMPREPLY=($(compgen -W "$(_amca_keys)" -- "$cur")); return;;
+            esac
+            candidates='list ls get set unset path edit describe migrate --origin --changed --keys';;
+        args|a)      candidates="$(_amca_plugins) --show";;
+        root)        candidates='show ignore unignore clear-ignored';;
+        completions) candidates='bash zsh fish --install --uninstall --status --where --rc --command';;
+        plugins)     candidates='--names --markers --enabled-only';;
+        *)           candidates='run new remove root args config doctor plugins completions';;
     esac
+
+    if [[ "$cur" == -* ]]; then
+        candidates="$candidates $_amca_global_opts --dry-run"
+    fi
+
+    # Markers are valid at every position, but they must NOT suppress the
+    # ordinary candidates: with an empty $cur every marker matches, which is
+    # how `amca <TAB>` came to offer markers and nothing else.
+    COMPREPLY=($(compgen -W "$candidates $(_amca_markers)" -- "$cur"))
 }
-complete -F _amca @NAMES@
+complete -o bashdefault -o default -F _amca @NAMES@
 
 _amcapl() {
     local cur prev
+    COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     case "$prev" in
@@ -107,7 +110,7 @@ _amcapl() {
     fi
     COMPREPLY=($(compgen -W 'list enable disable toggle install uninstall update call' -- "$cur"))
 }
-complete -F _amcapl @PLNAMES@
+complete -o bashdefault -o default -F _amcapl @PLNAMES@
 """
 
 _ZSH = r"""#compdef @NAMES@ @PLNAMES@
@@ -223,12 +226,15 @@ case ${service:-$words[1]} in
 esac
 """
 
-_FISH = r"""# amca fish completion.  Install with:
-#   amca completions fish > ~/.config/fish/completions/amca.fish
-
-function __amca_plugins;  @AMCA@ plugins --names   2>/dev/null; end
+# fish autoloads completions/<command>.fish lazily, keyed on the command being
+# completed. `amcapl` completions living inside amca.fish are therefore never
+# read — the file is only sourced when you complete `amca`. Two files.
+_FISH_COMMON = r"""function __amca_plugins;  @AMCA@ plugins --names   2>/dev/null; end
 function __amca_markers;  @AMCA@ plugins --markers 2>/dev/null; end
 function __amca_keys;     @AMCA@ config list --keys 2>/dev/null; end
+"""
+
+_FISH = _FISH_COMMON + r"""# amca fish completion -> ~/.config/fish/completions/amca.fish
 function __amca_no_sub;   not __fish_seen_subcommand_from run r new n remove rm root args a config doctor plugins completions; end
 
 complete -c amca -f
@@ -258,7 +264,9 @@ complete -c amca -l config-dir -x -a '(__fish_complete_directories)'
 complete -c amca -l plugin-dir -x -a '(__fish_complete_directories)'
 complete -c amca -l debug   -d 'extra diagnostics'
 complete -c amca -l dry-run -d 'show what would run'
+"""
 
+_FISH_PL = _FISH_COMMON + r"""# amcapl fish completion -> ~/.config/fish/completions/amcapl.fish
 complete -c amcapl -f
 complete -c amcapl -n 'not __fish_seen_subcommand_from list enable disable toggle install uninstall update call' \
     -a 'list enable disable toggle install uninstall update call'
@@ -334,6 +342,26 @@ def script_for(shell: str, *, names: Sequence[str] = (), pl_names: Sequence[str]
         .replace("@AMCA@", _executable("amca"))
         .replace("@PLNAMES@", " ".join(all_pl_names))
         .replace("@NAMES@", " ".join(all_names))
+    )
+
+
+def _sibling_name(shell: str) -> str | None:
+    """Second filename this shell autoloads for ``amcapl``, if any.
+
+    zsh is None because a single ``#compdef amca amcapl`` line binds both.
+    """
+    return {"bash": "amcapl", "fish": "amcapl.fish"}.get(shell)
+
+
+def _pl_script_for(shell: str, *, names: Sequence[str] = (), pl_names: Sequence[str] = ()) -> str:
+    """Content for the amcapl sibling file. Identical to the main script for
+    bash (one file declares both `complete -F`), separate for fish."""
+    if shell != "fish":
+        return script_for(shell, names=names, pl_names=pl_names)
+    return (
+        _FISH_PL
+        .replace("@AMCAPL@", _executable("amcapl"))
+        .replace("@AMCA@", _executable("amca"))
     )
 
 
@@ -484,13 +512,15 @@ def install(
         if not path.exists() or path.read_text(encoding="utf-8") != script:
             path.write_text(script, encoding="utf-8")
             written = True
-        if shell == "bash":
-            # bash-completion loads by command name, so amcapl needs its own
-            # entry. A copy rather than a symlink: some filesystems and some
-            # backup tools do not carry symlinks well, and the file is tiny.
-            sibling = path.with_name("amcapl")
-            if not sibling.exists() or sibling.read_text(encoding="utf-8") != script:
-                sibling.write_text(script, encoding="utf-8")
+        # bash-completion and fish both autoload by command name, so amcapl
+        # needs its own file. A copy rather than a symlink: some filesystems
+        # and backup tools do not carry symlinks well, and the file is tiny.
+        sibling_name = _sibling_name(shell)
+        if sibling_name is not None:
+            sibling = path.with_name(sibling_name)
+            pl_script = _pl_script_for(shell, names=names, pl_names=pl_names)
+            if not sibling.exists() or sibling.read_text(encoding="utf-8") != pl_script:
+                sibling.write_text(pl_script, encoding="utf-8")
     except OSError as exc:
         return InstallResult(shell, path, False, note=f"could not write: {exc}")
 
@@ -514,7 +544,8 @@ def uninstall(shell: str) -> tuple[list[Path], list[Path]]:
     removed: list[Path] = []
     edited: list[Path] = []
     path = target_path(shell)
-    for candidate in (path, path.with_name("amcapl") if shell == "bash" else None):
+    sibling_name = _sibling_name(shell)
+    for candidate in (path, path.with_name(sibling_name) if sibling_name else None):
         if candidate is not None and candidate.exists():
             try:
                 candidate.unlink()

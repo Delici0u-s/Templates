@@ -2,30 +2,29 @@
 
 **One command that knows what to do in whatever directory you are standing in.**
 
-You have a C project built with meson, a Python thing with a build script, and
-a dozen repos that each need some slightly different incantation. amca is the
-command you type in all of them. It looks at the directory, works out which of
-its plugins apply, and runs them.
+`amca` is a dispatcher for plugins based on the current directory,
+works out which of its plugins apply, and runs them. The behaviour lives in
+plugins.
 
 ```console
-$ cd ~/code/renderer          # has a meson.build
-$ amca
-[setup] meson setup /home/you/code/renderer/build
-[compile] meson compile -j 24
-[install] meson install
-[test] all tests passed
-[run] /home/you/code/renderer/compiled/renderer
-```
+# exaples
+$ cd ~/code/renderer     # a C project
+$ amca                   # with meson plugin installed and meson.build setup
+[setup] … [compile] … [install] … [test] … [run]
 
-```console
-$ cd ~/code/scraper           # has an amca_auto_script.sh
-$ amca
+$ cd ~/code/scraper      # a shell script
+$ amca                   # autoscript plugin installed
 [autoscript] sh /home/you/code/scraper/amca_auto_script.sh
+
 ```
 
-Same keystroke. amca itself does almost nothing — it decides *which* plugin
-applies and hands it the arguments. The behaviour lives in plugins, and you
-write your own.
+Same keystroke everywhere. amca decides *which* plugin applies and hands it the
+arguments; it has no opinion about what a build is.
+
+- [Install](#install) · [First run](#first-run) · [Two commands](#two-commands) · [Command reference](#command-reference)
+- [Plugins](#plugins) · [Writing a plugin](#writing-a-plugin) · [Bundled plugins](#bundled-plugins)
+- [Configuration](#configuration) · [Security](#security) · [Shell completion](#shell-completion)
+- [Troubleshooting](#when-something-is-wrong) · [Development](#development) · [Platform support](#platform-support)
 
 ---
 
@@ -33,15 +32,12 @@ write your own.
 
 Python 3.10 or newer. Nothing else — amca has **no required runtime
 dependencies**, deliberately, so a broken third-party wheel can never stop it
-from starting.
-
-Plugins may have their own: the bundled `meson` plugin needs `meson`, which
-needs `ninja` and a compiler.
+from starting. Individual plugins may have their own.
 
 ## Install
 
 ```bash
-uv tool install --python 3.13 --with 'amca[all]' git+https://github.com/Delici0u-s/amca
+uv tool install --python 3.13 --with 'amca[all]' amca
 ```
 
 `--python` pins a `uv`-managed interpreter so a distro Python upgrade cannot
@@ -50,6 +46,9 @@ break amca. Alternatives:
 ```bash
 pipx install 'amca[all]'
 pip install --user 'amca[all]'
+
+# to track main instead of the last release:
+uv tool install --python 3.13 --with 'amca[all]' git+https://github.com/Delici0u-s/amca
 ```
 
 | extra | gives you | without it |
@@ -58,28 +57,65 @@ pip install --user 'amca[all]'
 | `remote` | installing plugins from GitHub (requests) | bundled plugins only |
 | `all` | both | |
 
-Upgrading is `uv tool upgrade amca` or `pipx reinstall amca`. There is no build
+Upgrade with `uv tool upgrade amca` or `pipx reinstall amca`. There is no build
 step and nothing to recompile after a system update.
 
-## First run
+**Uninstall:**
 
 ```bash
-amcapl install meson autoscript   # from copies bundled in the wheel; works offline
-cd ~/some/project
-amca                              # run whatever applies
+amca completions --uninstall     # first, while amca can still find its files
+uv tool uninstall amca           # or: pipx uninstall amca
+rm -rf ~/.config/amca ~/.local/state/amca
 ```
 
-Tab-completion installs itself the first time you run amca interactively. See
-[Shell completion](#shell-completion).
+## Two commands
 
-Optionally mark a project root:
+amca ships two console scripts, split by lifetime:
 
-```bash
-amca new     # creates .amca/ for per-project plugin state and argument files
+| | |
+|---|---|
+| **`amca`** | run plugins, and everything scoped to a project or a single run |
+| **`amcapl`** | manage which plugins exist on this machine at all |
+
+They share global flags and configuration. `amcapl` is separate so `amca --help`
+stays short and so plugin management cannot be triggered by a stray argument
+during a build.
+
+## Command reference
+
+```
+amca [global flags] [command] [MARKER plugin-args …]
+
+  (none) / run     run every enabled plugin that applies here
+  new              create an amca root (.amca/) in this directory
+  remove           delete the amca root
+  root             show or manage root detection (show, ignore, unignore, clear-ignored)
+  args PLUGIN      edit that plugin's per-project default arguments
+  config           inspect or change settings
+  plugins          list installed plugins and their markers
+  completions      print, install or remove shell tab-completion
+  doctor           check paths, config, plugins, tools; non-zero on a problem
+
+amcapl [global flags] <command> [NAME …]
+
+  list                 what is installed, and its marker
+  install              fetch and enable
+  enable | disable | toggle
+  uninstall
+  update               re-fetch (use after editing a local plugin source)
+  call NAME -- ARGS    run one plugin directly, skipping should_load
 ```
 
-Without a root, amca uses the current directory. With one, `amca` works from
-any subdirectory of the project.
+Global flags: `--config-dir --plugin-dir --depth --editor --marker-prefix
+--log-mode --log-level --log-prefix --on-error --on-missing --debug --version`,
+plus `--dry-run` on `amca`. **Flags apply to one run and never write to your
+config file** — see [Configuration](#configuration).
+
+Omit the names on any `amcapl` command and you get a picker. **In the checkbox,
+space selects and enter confirms** — enter on its own selects nothing.
+
+Exit status: `0` success, `1` a plugin or command failed, `2` bad usage or bad
+configuration, `130` interrupted.
 
 ---
 
@@ -88,36 +124,22 @@ any subdirectory of the project.
 A plugin decides whether it applies (`should_load`) and then does the work
 (`load`). amca runs every enabled plugin that applies.
 
-```bash
-amcapl list                    # what is installed, and its marker
-amcapl install NAME…           # fetch and enable
-amcapl enable | disable | toggle [NAME…]
-amcapl uninstall NAME…
-amcapl update [NAME…]
-amcapl call NAME -- ARGS       # run one directly, skipping should_load
-```
-
-Omit the names and you get a picker. **In the checkbox, space selects and enter
-confirms** — enter on its own selects nothing.
-
 ### Passing arguments to a plugin
 
 Everything after a **marker** goes to that plugin, until the next marker:
 
 ```bash
-amca ---meson -s -j8              # clean, then full pipeline, 8 jobs
-amca ---meson compile             # one step
-amca ---autoscript deploy --dry   # forwarded to your script
+amca ---example --show
+amca ---autoscript deploy --dry
 ```
 
 A marker is `plugins.marker_prefix` (default `---`) plus the plugin's folder
 name, underscores written as dashes. `amca plugins --markers` prints the exact
 strings this directory accepts.
 
-**Naming a plugin runs only that plugin.** `amca ---meson compile` will not also
-fire autoscript, even if the directory has a script. With no markers, `amca`
-runs everything applicable — the usual case. Set `plugins.marker_scope=all` if
-you want a marker to add arguments without narrowing the run.
+**Naming a plugin runs only that plugin.** With no markers, `amca` runs
+everything applicable — the usual case. Set `plugins.marker_scope=all` if you
+want a marker to add arguments without narrowing the run.
 
 **An unrecognised marker is an error**, and it suggests the fix:
 
@@ -131,7 +153,7 @@ amca: unknown plugin marker '---autoScr'
 A bare `--` stops marker parsing, for values that begin with the prefix:
 
 ```bash
-amca config set plugins.marker_prefix -- +++
+amca config set plugins.marker_prefix ä
 ```
 
 Avoid shell glob or history characters (`* ? [ ] { } ~ !`) in the prefix — your
@@ -140,69 +162,37 @@ shell expands the marker before amca sees it. `config set` warns if you try.
 ### Per-project default arguments
 
 `.amca/args/<plugin>.args`, one argument per line, `#` for comments. They are
-placed before anything you type, so a project can pin `--buildtype=debug` while
-a command-line flag still overrides it.
+placed before anything you type, so a project can pin a flag while a
+command-line flag still overrides it.
 
 ```bash
 amca args meson        # opens it in $EDITOR
 amca args meson --show
 ```
 
----
+### Where plugins live
 
-## Bundled plugins
+Three different places, easy to conflate:
 
-### `example`
+| | |
+|---|---|
+| `<config>/plugins/` | **installed** — what actually runs. `amcapl` manages it; `plugins.dir` moves it. |
+| `plugins/amca_presets/` in this repo | the three bundled with amca, so `amcapl install` works offline |
+| anywhere you like | **yours** |
 
-A working plugin whose only purpose is to be copied. Sixty commented lines
-covering selection, `--dry-run`, `PluginError`, tool resolution and logging.
-
-```bash
-amcapl install example
-amca ---example --show     # prints every PluginContext field and what it is for
-```
-
-Start here rather than from one of the real presets.
-
-### `meson`
-
-Pipeline: `setup → reconfigure → compile → install → test → run`.
+Your own plugins do not belong in this repo. Add a source:
 
 ```bash
-amca ---meson                 # whole pipeline
-amca ---meson compile         # one step
-amca ---meson -s              # clean first
-amca ---meson -n t -n e       # skip test and run
-amca ---meson -Ab "--buildtype=debug" -Ae "--verbose"
-amca ---meson --print-template > meson.build
+amca config set plugins.sources builtin,/home/you/my-amca-plugins
+amcapl install cargo
+amcapl update cargo            # re-copy after editing
 ```
 
-Applies to any directory whose `meson.build` carries the amca variable block:
-
-```meson
-amca_var__meson__version_behaviour = '2.0.1'
-amca_var__meson__build_dir         = 'build'
-amca_var__meson__executable_name   = 'myapp'
-amca_var__meson__install_dir       = '../compiled'   # relative to build_dir
-```
-
-`reconfigure` re-runs meson only when the *set* of source files changes —
-ninja handles content changes. `.vscode/launch.json` and `.clangd` are kept
-pointing at the current build directory.
-
-### `autoscript`
-
-Runs `amca_auto_script[.sh|.bash|.zsh]` (`.ps1`/`.bat`/`.cmd` on Windows) from
-the working directory, falling back to the project root. Arguments are
-forwarded to the script.
+While iterating, skip the copy entirely:
 
 ```bash
-amca ---autoscript --new       # create one (asks which shell)
-amca ---autoscript build       # forwarded
-amca ---autoscript -- --help   # forward --help verbatim to the script
+amca --plugin-dir ~/my-amca-plugins ---cargo build
 ```
-
----
 
 ## Writing a plugin
 
@@ -246,36 +236,71 @@ my-plugin/
         __init__.py
 ```
 
-### Where plugins live
-
-Three different places, easy to conflate:
-
-| | |
-|---|---|
-| `~/.config/amca/plugins/` | **installed** — what actually runs. `amcapl` manages it; `plugins.dir` moves it. |
-| `plugins/amca_presets/` in this repo | the three bundled with amca, so `amcapl install` works offline |
-| anywhere you like | **yours** |
-
-Your own plugins do not belong in this repo. Add a source:
+Start from the `example` plugin rather than from one of the real presets:
 
 ```bash
-amca config set plugins.sources builtin,/home/you/my-amca-plugins
-amcapl install cargo
-amcapl update cargo            # re-copy after editing
+amcapl install example
+amca ---example --show     # prints every PluginContext field and what it is for
 ```
 
-While iterating, skip the copy entirely:
+## Bundled plugins
+
+Three, installed on demand with `amcapl install NAME`. None of them is
+privileged; they are ordinary plugins that happen to ship inside the wheel.
+
+| | applies when | does |
+|---|---|---|
+| `example` | never — call it directly | sixty commented lines to copy: selection, `--dry-run`, `PluginError`, tool resolution, logging |
+| `autoscript` | `amca_auto_script.*` is present | runs it, forwarding your arguments |
+| `meson` | `meson.build` carries the amca variable block | `setup → reconfigure → compile → install → test → run` |
+
+<details>
+<summary><code>autoscript</code> — details</summary>
+
+Runs `amca_auto_script[.sh|.bash|.zsh]` (`.ps1`/`.bat`/`.cmd` on Windows) from
+the working directory, falling back to the project root.
 
 ```bash
-amca --plugin-dir ~/my-amca-plugins ---cargo build
+amca ---autoscript --new       # create one (asks which shell)
+amca ---autoscript build       # forwarded to the script
+amca ---autoscript -- --help   # forward --help verbatim
 ```
+</details>
+
+<details>
+<summary><code>meson</code> — details</summary>
+
+Needs `meson`, which needs `ninja` and a compiler.
+
+```bash
+amca ---meson                 # whole pipeline
+amca ---meson compile         # one step
+amca ---meson -s              # clean first
+amca ---meson -n t -n e       # skip test and run
+amca ---meson -Ab "--buildtype=debug" -Ae "--verbose"
+amca ---meson --print-template > meson.build
+```
+
+Applies only to a `meson.build` carrying the amca variable block, so it stays
+inert in meson projects that are not yours:
+
+```meson
+amca_var__meson__version_behaviour = '2.0.1'
+amca_var__meson__build_dir         = 'build'
+amca_var__meson__executable_name   = 'myapp'
+amca_var__meson__install_dir       = '../compiled'   # relative to build_dir
+```
+
+`reconfigure` re-runs meson only when the *set* of source files changes —
+ninja handles content changes. `.vscode/launch.json` and `.clangd` are kept
+pointing at the current build directory.
+</details>
 
 ---
 
 ## Configuration
 
-One file, `$XDG_CONFIG_HOME/amca/config.json`. Four layers, lowest priority
-first:
+One JSON file. Four layers, lowest priority first:
 
 ```
 built-in default  →  config file  →  AMCA_* env var  →  command-line flag
@@ -283,6 +308,15 @@ built-in default  →  config file  →  AMCA_* env var  →  command-line flag
 
 **Only `amca config set` writes to disk.** Command-line flags apply to that run
 and nothing else.
+
+| | config | state (logs, caches, first-run marker) |
+|---|---|---|
+| Linux/BSD | `$XDG_CONFIG_HOME/amca` → `~/.config/amca` | `$XDG_STATE_HOME/amca` → `~/.local/state/amca` |
+| macOS | `~/Library/Application Support/amca` | `~/Library/Caches/amca` |
+| Windows | `%APPDATA%\amca` | `%LOCALAPPDATA%\amca` |
+
+Override with `--config-dir` / `$AMCA_CONFIG_DIR` and `$AMCA_STATE_DIR`.
+`amca config path` prints the one actually in use.
 
 ```bash
 amca config list --origin      # every setting, its value, and which layer won
@@ -292,7 +326,6 @@ amca config set plugins.marker_prefix '+++'
 amca config unset core.editor
 amca config describe log.mode  # type, default, env var name
 amca config edit
-amca config path
 ```
 
 `--origin` answers "I changed it and nothing happened": it shows whether an env
@@ -300,17 +333,8 @@ var is overriding your edit, whether the key is real (unknown keys are reported,
 not ignored), and which file is actually in use.
 
 Hand-editing the JSON is fully supported — `config set` is a convenience.
-Nested and dotted keys both work:
-
-```json
-{
-  "plugins": { "marker_prefix": "+++", "enabled": ["meson"] },
-  "log": { "level": "WARN" }
-}
-```
-
-Every setting has an env var: `plugins.marker_prefix` →
-`AMCA_PLUGINS_MARKER_PREFIX`.
+Nested and dotted keys both work. Every setting has an env var:
+`plugins.marker_prefix` → `AMCA_PLUGINS_MARKER_PREFIX`.
 
 <details>
 <summary>All settings</summary>
@@ -345,7 +369,29 @@ export AMCA_TOOL_MESON=/opt/meson/bin/meson
 export AMCA_TOOL_NINJA=samu
 ```
 
----
+## Security
+
+**A plugin is arbitrary Python that runs as you, with no sandbox.** amca
+imports `plugin.py` and calls it; it does not inspect, restrict or review what
+that code does. Treat installing a plugin exactly like `curl … | sh`.
+
+Concretely:
+
+- `amcapl install` copies a directory from a **source** and enables it. The
+  defaults are `builtin` (inside the wheel you already trust) and a GitHub
+  repository. Anything you add to `plugins.sources` — a URL, a local path —
+  becomes code that runs on your next `amca`.
+- `should_load` runs for **every enabled plugin on every invocation**, before
+  you have named anything. An enabled-and-installed plugin therefore executes
+  in every directory you type `amca` in, not only where it applies.
+- `.amca/args/<plugin>.args` is read from the project directory, so cloning an
+  untrusted repository that contains a `.amca/` directory hands that repo
+  influence over the flags your plugins receive. Run
+  `amca args <plugin> --show` before running amca in a repo you did not write.
+- Shell completion shells out to `amca` on every keypress. That is amca itself,
+  by absolute path — nothing from the project directory.
+
+`amca doctor` lists every installed plugin and where it came from.
 
 ## Shell completion
 
@@ -362,7 +408,7 @@ exec zsh
 
 ```bash
 amca completions --status           # per shell: installed? active? which helper?
-amca completions --uninstall        # removes the file and the rc block
+amca completions --uninstall        # removes the file(s) and the rc block
 amca completions bash > somewhere   # just print it
 export AMCA_NO_AUTO_COMPLETION=1    # opt out entirely
 ```
@@ -371,6 +417,9 @@ A wheel cannot run code at install time (PEP 427), so `pip`, `pipx` and `uv
 tool` have no way to register completions — only a distro package can. Doing it
 on first run is the closest equivalent that works for every install method.
 Nothing is added to a shell rc file unless you pass `--rc`.
+
+bash and fish autoload by command name, so `amcapl` gets its own file alongside
+`amca`'s; zsh binds both from a single `#compdef` line.
 
 **Using an alias?** The generated script calls amca by absolute path, so a venv
 install off `PATH` still completes — but the alias needs registering:
@@ -382,7 +431,8 @@ amca completions --install --command a3
 
 Completion is dynamic: plugin names, markers and config keys come from amca at
 completion time, so installing a plugin or changing the prefix takes effect
-immediately. The helpers are scriptable on their own:
+immediately. That costs one `amca` invocation per keypress. The helpers are
+scriptable on their own:
 
 ```bash
 amca plugins --names
@@ -403,9 +453,8 @@ resolution, every plugin's health, external tools, and the subprocess
 environment. Exits non-zero when it finds a problem. It is the right thing to
 paste into an issue.
 
----
-
-## Upgrading from amca 2.x
+<details>
+<summary>Upgrading from amca 2.x</summary>
 
 ```bash
 amca config migrate --dry-run     # show what would be imported
@@ -439,29 +488,17 @@ If you upgrade by extracting a release over an old checkout, note that
 unzipping does not delete removed files — `amca doctor` will tell you if a
 stale `src/amca/presets/` is left behind.
 
----
-
-## What changed in 3.0
-
-amca 2.x shipped as a PyInstaller `--onefile` binary rebuilt at install time.
-That put a private copy of CPython on `LD_LIBRARY_PATH` for every child
-process, so after a distro Python upgrade the system `meson` loaded amca's
-stale `libpython` and died with `internal Python C API version mismatch`. It
-came back every few weeks and reinstalling was the only fix.
-
-3.0 is a normal Python package, which makes that class of bug structurally
-impossible. Along the way:
-
-- CLI flags no longer write to your config file. In 2.x, `--debug` permanently
-  rewrote the JSON — even when the command then failed to parse.
-- Plugin markers have one definition instead of two disagreeing ones. A typo
-  used to split argv and silently discard everything after it.
-- Root discovery no longer runs at import time, so `amca --help` cannot block
-  on a prompt and `--depth` affects the search it configures.
-- Plugins import `amca.api` instead of vendoring copies of amca's internals.
-- Two plugins can have identically named submodules without shadowing.
-
----
+**Why 3.0 exists.** 2.x shipped as a PyInstaller `--onefile` binary rebuilt at
+install time. That put a private copy of CPython on `LD_LIBRARY_PATH` for every
+child process, so after a distro Python upgrade the system `meson` loaded
+amca's stale `libpython` and died with `internal Python C API version
+mismatch`. 3.0 is a normal Python package, which makes that class of bug
+structurally impossible. Along the way: CLI flags no longer write to your
+config file; plugin markers have one definition instead of two disagreeing
+ones; root discovery no longer runs at import time; plugins import `amca.api`
+instead of vendoring internals; and two plugins can have identically named
+submodules without shadowing.
+</details>
 
 ## Development
 
@@ -469,8 +506,8 @@ impossible. Along the way:
 git clone https://github.com/Delici0u-s/amca && cd amca
 pip install -e '.[all,dev]'
 
-pytest -q                    # 79 unit tests, under a second
-python tests/e2e.py          # 131-case end-to-end matrix, real subprocesses
+pytest -q                    # unit tests, under a second
+python tests/e2e.py          # end-to-end matrix, real subprocesses
 python tests/e2e.py --list   # the matrix without running it
 python tests/e2e.py -k markers -v
 ruff check src tests plugins
@@ -491,9 +528,9 @@ against throwaway config and project directories; cases marked `!` exercise a
 mistake, hostile argv, or a broken component, and there are more of those than
 happy paths. `tests/fixtures/probe/` is a plugin that dumps its whole
 `PluginContext` as JSON and can be driven into any failure mode with `PROBE_*`
-environment variables.
-
-Releasing: see [RELEASING.md](RELEASING.md).
+environment variables. `tests/test_completion_scripts.py` sources the generated
+shell scripts and drives the completion functions for real — emitting a script
+is not evidence that it completes anything.
 
 ## Platform support
 

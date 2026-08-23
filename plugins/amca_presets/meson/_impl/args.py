@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 
 __all__ = ["STEP_NAMES", "MesonOptions", "PluginExit", "parse_args"]
 
-VERSION = "3.0.0"
+VERSION = "3.0.1"
 
 #: Pipeline order. ``clean`` is not in here — it is a prelude, controlled by
 #: --clean / -s, because putting it in the list made `--skip` semantics
@@ -17,12 +17,20 @@ VERSION = "3.0.0"
 STEP_NAMES = ("setup", "reconfigure", "compile", "install", "test", "run")
 
 _SKIP_ALIASES = {
-    "r": "reconfigure", "reconf": "reconfigure", "reconfigure": "reconfigure",
-    "c": "compile", "compile": "compile",
-    "i": "install", "install": "install",
-    "e": "run", "exec": "run", "run": "run",
-    "t": "test", "test": "test",
-    "s": "setup", "setup": "setup",
+    "r": "reconfigure",
+    "reconf": "reconfigure",
+    "reconfigure": "reconfigure",
+    "c": "compile",
+    "compile": "compile",
+    "i": "install",
+    "install": "install",
+    "e": "run",
+    "exec": "run",
+    "run": "run",
+    "t": "test",
+    "test": "test",
+    "s": "setup",
+    "setup": "setup",
 }
 
 
@@ -82,30 +90,78 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("-V", "--version", action="version", version=f"%(prog)s {VERSION}")
-    parser.add_argument("mode", nargs="?", choices=list(STEP_NAMES) + ["clean"],
-                        help="run a single step instead of the pipeline")
-    parser.add_argument("-n", "--skip", action="append", default=[],
-                        choices=sorted(_SKIP_ALIASES),
-                        metavar="STEP",
-                        help="skip a pipeline step (r|c|i|e|t|s or the full name)")
-    parser.add_argument("--clean", "--clear", dest="clean", action="store_true",
-                        help="remove the build directory and installed binary")
-    parser.add_argument("-s", dest="clean_then_run", action="store_true",
-                        help="shorthand for --clean followed by the full pipeline")
-    parser.add_argument("-c", "--clear-console", dest="clear_console", action="store_true",
-                        help="clear the terminal just before running the binary")
-    parser.add_argument("-Ab", "--setup-args", dest="setup_args", default="",
-                        metavar='"ARGS"', help="extra arguments for `meson setup`")
-    parser.add_argument("-Ac", "--compile-args", dest="compile_args", default="",
-                        metavar='"ARGS"', help="extra arguments for `meson compile`")
-    parser.add_argument("-Ae", "--exec-args", dest="exec_args", default="",
-                        metavar='"ARGS"', help="arguments for the built binary")
-    parser.add_argument("-j", "--jobs", type=int, default=default_jobs, metavar="N",
-                        help=f"parallel jobs (default: {default_jobs})")
+    parser.add_argument(
+        "mode",
+        nargs="?",
+        choices=list(STEP_NAMES) + ["clean"],
+        help="run a single step instead of the pipeline",
+    )
+    parser.add_argument(
+        "-n",
+        "--skip",
+        action="append",
+        default=[],
+        choices=sorted(_SKIP_ALIASES),
+        metavar="STEP",
+        help="skip a pipeline step (r|c|i|e|t|s or the full name)",
+    )
+    parser.add_argument(
+        "--clean",
+        "--clear",
+        dest="clean",
+        action="store_true",
+        help="remove the build directory and installed binary",
+    )
+    parser.add_argument(
+        "-s",
+        dest="clean_then_run",
+        action="store_true",
+        help="shorthand for --clean followed by the full pipeline",
+    )
+    parser.add_argument(
+        "-c",
+        "--clear-console",
+        dest="clear_console",
+        action="store_true",
+        help="clear the terminal just before running the binary",
+    )
+    parser.add_argument(
+        "-Ab",
+        "--setup-args",
+        dest="setup_args",
+        default="",
+        metavar='"ARGS"',
+        help="extra arguments for `meson setup`",
+    )
+    parser.add_argument(
+        "-Ac",
+        "--compile-args",
+        dest="compile_args",
+        default="",
+        metavar='"ARGS"',
+        help="extra arguments for `meson compile`",
+    )
+    parser.add_argument(
+        "-Ae",
+        "--exec-args",
+        dest="exec_args",
+        default="",
+        metavar='"ARGS"',
+        help="arguments for the built binary",
+    )
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=default_jobs,
+        metavar="N",
+        help=f"parallel jobs (default: {default_jobs})",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("-q", "--quiet", action="store_true")
-    parser.add_argument("--print-template", action="store_true",
-                        help="print a meson.build template and exit")
+    parser.add_argument(
+        "--print-template", action="store_true", help="print a meson.build template and exit"
+    )
     return parser
 
 
@@ -125,9 +181,15 @@ def parse_args(argv: list[str]) -> MesonOptions:
     if mode == "clean":
         mode = None
         # `meson clean` alone means clean and stop.
-        return MesonOptions(mode=None, clean=True, clean_then_run=False,
-                            jobs=max(1, ns.jobs), verbose=ns.verbose, quiet=ns.quiet,
-                            skip=frozenset(STEP_NAMES))
+        return MesonOptions(
+            mode=None,
+            clean=True,
+            clean_then_run=False,
+            jobs=max(1, ns.jobs),
+            verbose=ns.verbose,
+            quiet=ns.quiet,
+            skip=frozenset(STEP_NAMES),
+        )
 
     return MesonOptions(
         mode=mode,
