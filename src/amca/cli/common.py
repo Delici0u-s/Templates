@@ -39,7 +39,8 @@ def add_global_flags(parser: argparse.ArgumentParser, *, marker_prefix: str = "-
         "Session-only overrides. These never modify the config file — "
         "use `amca config set` for that.",
     )
-    group.add_argument("--version", action="version", version=f"amca {__version__}")
+    group.add_argument("--version", action="version",
+                       version=f"%(prog)s {__version__}")
     group.add_argument("--config-dir", metavar="DIR", default=None,
                        help="use a different config directory for this run")
     group.add_argument("--debug", action="store_true", default=None,

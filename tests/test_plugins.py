@@ -135,6 +135,25 @@ class TestBundledPresets:
         root = BuiltinSource()._root()
         assert (root / "meson" / "meson.build.template").is_file()
 
+    def test_doctor_flags_a_stale_presets_directory(self, tmp_path: Path,
+                                                    monkeypatch: pytest.MonkeyPatch) -> None:
+        """Extracting a release over an old checkout leaves src/amca/presets/.
+
+        Unzipping does not delete removed files, so anyone upgrading in place
+        keeps a directory that no longer belongs to the project. Silent is the
+        wrong outcome — doctor names it and says how to remove it.
+        """
+        import amca
+        from amca.cli.commands.doctor import _stale_presets
+
+        assert _stale_presets() is None
+
+        fake = tmp_path / "amca"
+        (fake / "presets").mkdir(parents=True)
+        (fake / "__init__.py").write_text("")
+        monkeypatch.setattr(amca, "__file__", str(fake / "__init__.py"))
+        assert _stale_presets() == fake / "presets"
+
     def test_every_preset_has_an_entry_file(self) -> None:
         from amca.plugins.sources import BuiltinSource
 

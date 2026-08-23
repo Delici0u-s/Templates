@@ -14,6 +14,7 @@ import os
 import platform
 import shutil
 import sys
+from pathlib import Path
 
 from ... import __version__
 from ...core import proc
@@ -32,6 +33,17 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser.add_argument("--tools", nargs="*", default=None,
                         help="extra external programs to probe for")
     parser.set_defaults(handler=handle)
+
+
+def _stale_presets() -> Path | None:
+    """Detect a leftover src/amca/presets/ from an older layout."""
+    try:
+        import amca
+
+        candidate = Path(amca.__file__ or "").parent / "presets"
+    except Exception:
+        return None
+    return candidate if candidate.is_dir() else None
 
 
 def _line(status: str, label: str, detail: str = "") -> None:
@@ -84,6 +96,16 @@ def handle(ctx: AmcaContext, args: argparse.Namespace, _: dict[str, list[str]]) 
     else:
         _line(_OK, "amca root", str(root.marker))
     print()
+
+    stale = _stale_presets()
+    if stale is not None:
+        _line(_BAD, "stale directory", str(stale))
+        print(f"         This is left over from amca <= 3.0.0, where the bundled\n"
+              f"         presets lived under src/. They now live in plugins/.\n"
+              f"         Extracting a new release over an old checkout does not\n"
+              f"         remove it. Delete it:  rm -rf {stale}")
+        problems += 1
+        print()
 
     print("plugins")
     registry = Registry(ctx)

@@ -61,15 +61,13 @@ class autoscript(Plugin):
             if ctx.dry_run:
                 ctx.log.log(f"[autoscript] would run: {' '.join(command)}")
                 return 0
-            ctx.log.log(f"[autoscript] {' '.join(command)}")
+            # ctx.log.log(f"[autoscript] {' '.join(command)}")
             code = proc.call(command, cwd=str(ctx.working_dir.path))
             if code == 130:
                 raise KeyboardInterrupt
             return code
 
-        ctx.log.warning(
-            "no auto script found. Create one with:  amca ---autoscript --new"
-        )
+        ctx.log.warning("no auto script found. Create one with:  amca ---autoscript --new")
         return 1
 
     # ── Helpers ─────────────────────────────────────────────────────────────
@@ -141,7 +139,7 @@ def _parse(args: list[str]) -> tuple[argparse.Namespace, list[str], bool]:
     """
     if "--" in args:
         index = args.index("--")
-        head, tail = args[:index], args[index + 1:]
+        head, tail = args[:index], args[index + 1 :]
     else:
         head, tail = args, None
 
