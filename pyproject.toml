@@ -40,16 +40,18 @@ Homepage = "https://github.com/Delici0u-s/Amca"
 Issues = "https://github.com/Delici0u-s/Amca/issues"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+# Two roots: the application lives in src/, the bundled plugins live in
+# plugins/. They ship in the same wheel but are separate packages, because
+# amca copies preset directories out to disk rather than importing them.
+where = ["src", "plugins"]
 include = ["amca*"]
 
 [tool.setuptools.package-data]
-# Preset plugins ship inside the wheel so `amcapl install meson` works offline.
 # The glob must be broad: a preset is copied to disk verbatim, so *any* file it
 # carries has to survive packaging. A narrow extension list silently dropped
 # meson.build.template and left `--print-template` broken in the wheel while
 # it still worked from a source checkout.
-"amca.presets" = ["**/*"]
+"amca_presets" = ["**/*"]
 
 [tool.setuptools.exclude-package-data]
 # The broad presets glob above would otherwise sweep up stale bytecode from a
@@ -58,7 +60,7 @@ include = ["amca*"]
 
 [tool.ruff]
 line-length = 100
-src = ["src"]
+src = ["src", "plugins"]
 
 [tool.ruff.lint]
 ignore = [
@@ -72,7 +74,11 @@ ignore = [
 [tool.mypy]
 python_version = "3.10"
 strict = true
-mypy_path = "src"
+# Both roots: the bundled plugins are the reference examples of the plugin API,
+# so they have to type-check against it. Moving them out of src/ silently
+# dropped them from `mypy src` — 45 files became 31 before this was added.
+mypy_path = "src:plugins"
+files = ["src", "plugins"]
 
 [[tool.mypy.overrides]]
 module = ["InquirerPy", "InquirerPy.*", "requests", "requests.*"]

@@ -84,7 +84,7 @@ class TestExecutableSuffix:
     )
 
     def _project(self, tmp_path: Path):  # type: ignore[no-untyped-def]
-        from amca.presets.meson._impl.project import MesonProject
+        from amca_presets.meson._impl.project import MesonProject
 
         meson_file = tmp_path / "meson.build"
         meson_file.write_text(self.TEMPLATE)
@@ -108,7 +108,7 @@ def _reload_scripts(monkeypatch: pytest.MonkeyPatch, name: str):  # type: ignore
     plain monkeypatch is not enough — the module has to be re-executed.
     """
     monkeypatch.setattr(os, "name", name)
-    module = importlib.import_module("amca.presets.autoscript._impl.scripts")
+    module = importlib.import_module("amca_presets.autoscript._impl.scripts")
     return importlib.reload(module)
 
 
@@ -174,7 +174,7 @@ class TestAutoscriptPlatform:
     @pytest.fixture(autouse=True)
     def _restore(self) -> None:
         yield
-        importlib.reload(importlib.import_module("amca.presets.autoscript._impl.scripts"))
+        importlib.reload(importlib.import_module("amca_presets.autoscript._impl.scripts"))
 
 
 # ── Argument splitting ───────────────────────────────────────────────────────
@@ -182,13 +182,13 @@ class TestAutoscriptPlatform:
 class TestShellSplitting:
     def test_posix_quoting(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(os, "name", "posix")
-        from amca.presets.meson._impl.args import parse_args
+        from amca_presets.meson._impl.args import parse_args
 
         assert parse_args(["-Ab", "'a b' c"]).setup_args == ["a b", "c"]
 
     def test_windows_keeps_backslashes(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(os, "name", "nt")
-        from amca.presets.meson._impl.args import parse_args
+        from amca_presets.meson._impl.args import parse_args
 
         # Non-posix shlex must not eat backslashes in a Windows path.
         result = parse_args(["-Ab", r"--prefix C:\Program"]).setup_args
@@ -269,7 +269,7 @@ class TestColorDetection:
 
 class TestPathPortability:
     def test_source_cache_stores_posix_paths(self, tmp_path: Path) -> None:
-        from amca.presets.meson._impl.source_cache import sources_changed
+        from amca_presets.meson._impl.source_cache import sources_changed
 
         nested = tmp_path / "a" / "b"
         nested.mkdir(parents=True)
@@ -313,7 +313,7 @@ def test_glob_script_writes_bytes_not_print() -> None:
     a trailing '\\r' and resolve to nothing. Writing to the binary buffer
     bypasses newline translation.
     """
-    from amca.presets.meson import plugin
+    from amca_presets.meson import plugin
 
     template = (Path(plugin.__file__).parent / plugin.TEMPLATE_FILE).read_text()
     assert "sys.stdout.buffer.write" in template

@@ -73,6 +73,16 @@ class TestMarkers:
         result = split_argv(["---meson", "--", "-x"], ["meson"], "---")
         assert result.per_plugin == {"meson": ["--", "-x"]}
 
+    def test_unknown_marker_suggests_a_case_slip(self) -> None:
+        with pytest.raises(UnknownMarker) as caught:
+            split_argv(["---autoScr"], ["autoscript"], "---")
+        assert "did you mean: ---autoscript" in str(caught.value)
+
+    def test_unknown_marker_suggests_a_near_miss(self) -> None:
+        with pytest.raises(UnknownMarker) as caught:
+            split_argv(["---mesn"], ["meson"], "---")
+        assert "did you mean: ---meson" in str(caught.value)
+
     def test_empty_prefix_rejected(self) -> None:
         with pytest.raises(ValueError):
             split_argv([], ["meson"], "")
@@ -177,3 +187,57 @@ class TestSchema:
         from amca.cli.common import FLAG_TO_KEY
 
         assert set(FLAG_TO_KEY.values()) <= set(SCHEMA)
+
+
+# ── Interactive prompt semantics ─────────────────────────────────────────────
+
+class TestPromptSemantics:
+    """An empty confirmed selection and a cancellation are different events.
+
+    Collapsing them made `amcapl install` + Enter exit 1 with no output.
+    """
+
+    def test_multiselect_returns_none_without_a_tty(self) -> None:
+        from amca.cli.prompt import multiselect
+
+        # pytest captures stdio, so this is the non-interactive path.
+        assert multiselect("pick", ["a", "b"]) is None
+
+    def test_multiselect_returns_none_for_empty_choices(self) -> None:
+        from amca.cli.prompt import multiselect
+
+        assert multiselect("pick", []) is None
+
+    def test_checkbox_empty_selection_is_a_list_not_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from amca.cli import prompt
+
+        class _Checkbox:
+            def execute(self) -> list[str]:
+                return []          # user pressed Enter having toggled nothing
+
+        class _Inquirer:
+            @staticmethod
+            def checkbox(**_kwargs: object) -> _Checkbox:
+                return _Checkbox()
+
+        monkeypatch.setattr(prompt, "interactive", lambda: True)
+        monkeypatch.setattr(prompt, "_inquirer", lambda: _Inquirer())
+        assert prompt.multiselect("pick", ["a", "b"]) == []
+
+    def test_checkbox_cancel_is_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from amca.cli import prompt
+
+        class _Checkbox:
+            def execute(self) -> list[str]:
+                raise KeyboardInterrupt
+
+        class _Inquirer:
+            @staticmethod
+            def checkbox(**_kwargs: object) -> _Checkbox:
+                return _Checkbox()
+
+        monkeypatch.setattr(prompt, "interactive", lambda: True)
+        monkeypatch.setattr(prompt, "_inquirer", lambda: _Inquirer())
+        assert prompt.multiselect("pick", ["a", "b"]) is None

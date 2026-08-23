@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from amca.plugins.loader import PluginLoadError, discover, load_plugin
-from amca.presets.meson._impl.args import parse_args
-from amca.presets.meson._impl.project import MesonProject, ProjectError
+from amca_presets.meson._impl.args import parse_args
+from amca_presets.meson._impl.project import MesonProject, ProjectError
 
 PLUGIN_SOURCE = '''
 from amca.api import Plugin
@@ -100,6 +100,48 @@ class TestLoading:
         found = {p.folder: p for p in discover(tmp_path)}
         assert load_plugin(found["alpha"]).description == "A"
         assert load_plugin(found["beta"]).description == "B"
+
+
+class TestBundledPresets:
+    """The presets live outside src/ but must still ship and stay importable.
+
+    Moving them from src/amca/presets/ to plugins/amca_presets/ is exactly the
+    kind of change that quietly breaks packaging — a wheel that installs fine
+    and then cannot find its own bundled plugins.
+    """
+
+    def test_presets_package_is_importable(self) -> None:
+        import amca_presets
+
+        assert Path(amca_presets.__file__).parent.is_dir()
+
+    def test_builtin_source_finds_every_preset(self) -> None:
+        from amca.plugins.sources import BuiltinSource
+
+        offered = BuiltinSource().list_plugins()
+        assert {"meson", "autoscript", "example"} <= set(offered), offered
+
+    def test_presets_are_not_importable_under_amca(self) -> None:
+        # A second import path to the same code is a shadowing hazard: the
+        # loader imports a *copy* as amca_plugin_<name>, never this one.
+        import importlib
+
+        with pytest.raises(ImportError):
+            importlib.import_module("amca.presets")
+
+    def test_meson_template_ships_with_the_plugin(self) -> None:
+        from amca.plugins.sources import BuiltinSource
+
+        root = BuiltinSource()._root()
+        assert (root / "meson" / "meson.build.template").is_file()
+
+    def test_every_preset_has_an_entry_file(self) -> None:
+        from amca.plugins.sources import BuiltinSource
+
+        root = BuiltinSource()._root()
+        for entry in root.iterdir():
+            if entry.is_dir() and not entry.name.startswith(("_", ".")):
+                assert (entry / "plugin.py").is_file() or (entry / "init.py").is_file(), entry
 
 
 class TestMesonProject:

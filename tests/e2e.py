@@ -116,6 +116,7 @@ class Sandbox:
         self.config_dir = base / "config"
         self.state_dir = base / "state"
         self.project = base / "project"
+        self.home = base / "home"
         self.project.mkdir(parents=True, exist_ok=True)
         self.verbose = verbose
         self.env_extra: dict[str, str] = {}
@@ -131,6 +132,17 @@ class Sandbox:
         env["AMCA_CONFIG_DIR"] = str(self.config_dir)
         env["AMCA_STATE_DIR"] = str(self.state_dir)
         env["NO_COLOR"] = "1"
+        # Own HOME as well: the completion commands derive XDG paths from it,
+        # and no test may write into the developer's real home directory.
+        self.home.mkdir(parents=True, exist_ok=True)
+        env["HOME"] = str(self.home)
+        env.pop("XDG_DATA_HOME", None)
+        env.pop("XDG_CONFIG_HOME", None)
+        env.pop("ZDOTDIR", None)
+        env["SHELL"] = "/bin/bash"
+        # Subprocesses are not TTYs here, so the first-run hook stays dormant
+        # anyway; being explicit keeps that true if that ever changes.
+        env["AMCA_NO_AUTO_COMPLETION"] = "1"
         env.update(self.env_extra)
         return env
 
@@ -433,15 +445,20 @@ def d2(box: Sandbox) -> list[str]:
             + expect(beta["args"] == ["B1"], f"beta got {beta['args']!r}"))
 
 
-@case("D3", "multi", "a plugin with no marker still runs with empty args")
+@case("D3", "multi", "with no markers at all, every applicable plugin runs")
 def d3(box: Sandbox) -> list[str]:
+    """Superseded in part by D7: markers now narrow the run.
+
+    Kept because the no-marker case is the common one — `amca` on its own must
+    still run everything that applies, with empty args.
+    """
     box.add_probe("alpha")
     box.add_probe("beta")
     box.enable("alpha", "beta")
-    run = box.run("---beta", "B1")
-    alpha = run.probe("alpha")
-    return expect(alpha is not None and alpha["args"] == [],
-                  "alpha should still run with no arguments")
+    run = box.run()
+    alpha, beta = run.probe("alpha"), run.probe("beta")
+    return (expect(alpha is not None and alpha["args"] == [], "alpha did not run")
+            + expect(beta is not None and beta["args"] == [], "beta did not run"))
 
 
 @case("D4", "multi", "a repeated marker accumulates rather than overwriting")
@@ -477,6 +494,45 @@ def d6(box: Sandbox) -> list[str]:
     return (expect(alpha["plugin_dir"] != beta["plugin_dir"], "plugin dirs collided")
             + expect(alpha["plugin_dir_exists"] and beta["plugin_dir_exists"],
                      "plugin dirs not created"))
+
+
+@case("D7", "multi", "naming a plugin runs only that plugin")
+def d7(box: Sandbox) -> list[str]:
+    """`amca ---meson --help` used to also execute autoscript.
+
+    Technically correct — autoscript applied to the directory — and completely
+    surprising. A marker now narrows the run.
+    """
+    box.add_probe("alpha")
+    box.add_probe("beta")
+    box.enable("alpha", "beta")
+    run = box.run("---beta", "B1")
+    return (expect_code(run, 0)
+            + expect(run.probe("beta") is not None, "the named plugin did not run")
+            + expect(run.probe("alpha") is None, "an unnamed plugin ran anyway"))
+
+
+@case("D8", "multi", "plugins.marker_scope=all restores run-everything")
+def d8(box: Sandbox) -> list[str]:
+    box.add_probe("alpha")
+    box.add_probe("beta")
+    box.enable("alpha", "beta")
+    box.set_config("plugins.marker_scope", "all")
+    run = box.run("---beta", "B1")
+    alpha = run.probe("alpha")
+    return (expect(alpha is not None and alpha["args"] == [], "alpha skipped under scope=all")
+            + expect(run.probe("beta") is not None, "beta skipped"))
+
+
+@case("D9", "multi", "several markers select exactly those plugins")
+def d9(box: Sandbox) -> list[str]:
+    for name in ("alpha", "beta", "gamma"):
+        box.add_probe(name)
+    box.enable("alpha", "beta", "gamma")
+    run = box.run("---alpha", "a", "---gamma", "g")
+    return (expect(run.probe("alpha") is not None, "alpha skipped")
+            + expect(run.probe("gamma") is not None, "gamma skipped")
+            + expect(run.probe("beta") is None, "beta ran without being named"))
 
 
 # ── E. Broken plugins (unexpected) ───────────────────────────────────────────
@@ -765,6 +821,15 @@ def f12(box: Sandbox) -> list[str]:
             + expect(got.out.strip() == "---", f"value not stored: {got.out.strip()!r}"))
 
 
+@case("F13", "markers", "a case-slip marker suggests the right one", unexpected=True)
+def f13(box: Sandbox) -> list[str]:
+    box.add_probe("autoscript")
+    box.enable("autoscript")
+    run = box.run("---autoScr")
+    return (expect_code(run, 2) + expect_in(run, "did you mean")
+            + expect_in(run, "---autoscript"))
+
+
 # ── G. Config ────────────────────────────────────────────────────────────────
 
 @case("G1", "config", "set / get / unset round-trip")
@@ -882,6 +947,195 @@ def g12(box: Sandbox) -> list[str]:
         os.chmod(box.config_dir, 0o700)
 
 
+@case("G13", "config", "hand-editing the config file works")
+def g13(box: Sandbox) -> list[str]:
+    """The file is a first-class way to configure amca, not a cache."""
+    box.write_config_raw(
+        '{"plugins": {"marker_prefix": "+++", "enabled": ["probe"]}, '
+        '"log": {"level": "WARN"}}'
+    )
+    box.add_probe("probe")
+    record = box.run("+++probe", "-x").probe("probe")
+    level = box.run("config", "get", "log.level")
+    return (expect(record is not None and record["args"] == ["-x"],
+                   "hand-written marker_prefix had no effect")
+            + expect(level.out.strip() == "WARN", "hand-written log.level had no effect"))
+
+
+@case("G14", "config", "list --origin names the env var redirecting the config dir")
+def g14(box: Sandbox) -> list[str]:
+    run = box.run("config", "list", "--origin")
+    return expect_in(run, "AMCA_CONFIG_DIR") + expect_in(run, "config file")
+
+
+@case("G15", "config", "a shell-glob marker prefix is warned about", unexpected=True)
+def g15(box: Sandbox) -> list[str]:
+    run = box.run("config", "set", "plugins.marker_prefix", "?")
+    return expect_code(run, 0) + expect_in(run, "glob")
+
+
+@case("G16", "config", "--help reflects the configured prefix, not the default")
+def g16(box: Sandbox) -> list[str]:
+    box.add_probe("probe")
+    box.enable("probe")
+    box.set_config("plugins.marker_prefix", "+++")
+    run = box.run("--help")
+    return (expect_in(run, "+++probe") + expect_not_in(run, "---meson")
+            + expect_in(run, "Current marker prefix"))
+
+
+# ── N. Shell completion ──────────────────────────────────────────────────────
+
+@case("N1", "completion", "machine-readable plugin names and markers")
+def n1(box: Sandbox) -> list[str]:
+    box.add_probe("alpha")
+    box.add_probe("beta")
+    box.enable("alpha")
+    names = box.run("plugins", "--names")
+    markers = box.run("plugins", "--markers")
+    enabled = box.run("plugins", "--names", "--enabled-only")
+    return (expect(names.out.split() == ["alpha", "beta"], f"names: {names.out!r}")
+            + expect(markers.out.split() == ["---alpha", "---beta"], f"markers: {markers.out!r}")
+            + expect(enabled.out.split() == ["alpha"], f"enabled-only: {enabled.out!r}"))
+
+
+@case("N2", "completion", "markers track the configured prefix")
+def n2(box: Sandbox) -> list[str]:
+    box.add_probe("probe")
+    box.set_config("plugins.marker_prefix", "@@")
+    run = box.run("plugins", "--markers")
+    return expect(run.out.strip() == "@@probe", f"got {run.out!r}")
+
+
+@case("N3", "completion", "config keys are listed one per line")
+def n3(box: Sandbox) -> list[str]:
+    run = box.run("config", "list", "--keys")
+    keys = run.out.split()
+    return (expect_code(run, 0)
+            + expect("plugins.marker_prefix" in keys, "key list incomplete")
+            + expect(all("[" not in k for k in keys), "decoration leaked into --keys"))
+
+
+@case("N4", "completion", "every shell script is emitted and non-empty")
+def n4(box: Sandbox) -> list[str]:
+    problems: list[str] = []
+    for shell in ("bash", "zsh", "fish"):
+        run = box.run("completions", shell)
+        problems += expect_code(run, 0)
+        problems += expect(len(run.out) > 500, f"{shell} script suspiciously short")
+    return problems
+
+
+@case("N5", "completion", "an unknown shell is refused", unexpected=True)
+def n5(box: Sandbox) -> list[str]:
+    run = box.run("completions", "csh")
+    return expect_code(run, 2) + no_traceback(run)
+
+
+@case("N6", "completion", "helper commands work with no plugins and no config")
+def n6(box: Sandbox) -> list[str]:
+    """Completion runs on every Tab. It must never fail or print noise."""
+    problems: list[str] = []
+    for argv in (("plugins", "--names"), ("plugins", "--markers"),
+                 ("config", "list", "--keys")):
+        run = box.run(*argv)
+        problems += expect_code(run, 0)
+        problems += expect(run.err.strip() == "", f"{argv} wrote to stderr: {run.err!r}")
+    return problems
+
+
+@case("N13", "completion", "scripts call amca by absolute path, not by name")
+def n13(box: Sandbox) -> list[str]:
+    """A venv or alias install is not on PATH.
+
+    A completion script calling a bare `amca` then returns nothing for every
+    dynamic candidate, and the whole feature looks broken.
+    """
+    problems: list[str] = []
+    for shell in ("bash", "zsh", "fish"):
+        run = box.run("completions", shell)
+        problems += expect(" /" in run.out or run.out.count("/amca") > 0,
+                           f"{shell} script does not use an absolute helper path")
+    return problems
+
+
+@case("N14", "completion", "--command registers an alias exactly once")
+def n14(box: Sandbox) -> list[str]:
+    run = box.run("completions", "zsh", "--command", "a3")
+    first = next((ln for ln in run.out.splitlines() if ln.startswith("#compdef")), "")
+    return (expect("a3" in first, f"alias not registered: {first!r}")
+            + expect(first.split().count("a3") == 1,
+                     f"alias registered twice: {first!r}"))
+
+
+@case("N7", "completion", "--status reports all three shells")
+def n7(box: Sandbox) -> list[str]:
+    run = box.run("completions", "--status")
+    return (expect_code(run, 0) + expect_in(run, "bash")
+            + expect_in(run, "zsh") + expect_in(run, "fish")
+            + expect_in(run, "not installed"))
+
+
+@case("N8", "completion", "--install writes to the per-user directory")
+def n8(box: Sandbox) -> list[str]:
+    run = box.run("completions", "bash", "--install")
+    target = box.home / ".local" / "share" / "bash-completion" / "completions" / "amca"
+    sibling = target.with_name("amcapl")
+    return (expect_code(run, 0)
+            + expect(target.is_file(), f"not written to {target}")
+            + expect(sibling.is_file(), "amcapl completion missing")
+            + expect(len(target.read_text()) > 500, "written script is too short"))
+
+
+@case("N9", "completion", "--install is idempotent and --uninstall reverses it")
+def n9(box: Sandbox) -> list[str]:
+    box.run("completions", "bash", "--install")
+    again = box.run("completions", "bash", "--install")
+    removed = box.run("completions", "bash", "--uninstall")
+    target = box.home / ".local" / "share" / "bash-completion" / "completions" / "amca"
+    return (expect_in(again, "already up to date")
+            + expect_code(removed, 0)
+            + expect(not target.exists(), "file survived --uninstall"))
+
+
+@case("N10", "completion", "--install --rc adds a removable block to .zshrc")
+def n10(box: Sandbox) -> list[str]:
+    box.run("completions", "zsh", "--install", "--rc")
+    zshrc = box.home / ".zshrc"
+    if not zshrc.exists():
+        return ["--rc did not create .zshrc"]
+    with_block = zshrc.read_text()
+    box.run("completions", "zsh", "--uninstall")
+    after = zshrc.read_text()
+    return (expect("fpath=" in with_block, "no fpath line added")
+            + expect(">>> amca completion >>>" in with_block, "block not delimited")
+            + expect("amca completion" not in after, "block survived --uninstall")
+            + expect(zshrc.exists(), "--uninstall deleted .zshrc entirely"))
+
+
+@case("N11", "completion", "--rc preserves the rest of the rc file", unexpected=True)
+def n11(box: Sandbox) -> list[str]:
+    box.home.mkdir(parents=True, exist_ok=True)
+    zshrc = box.home / ".zshrc"
+    zshrc.write_text("export MY_THING=1\nalias ll='ls -l'\n")
+    box.run("completions", "zsh", "--install", "--rc")
+    box.run("completions", "zsh", "--uninstall")
+    after = zshrc.read_text()
+    return (expect("MY_THING" in after, "amca clobbered an unrelated rc line")
+            + expect("alias ll=" in after, "amca clobbered an unrelated rc line"))
+
+
+@case("N12", "completion", "the first-run hook never fires in a non-TTY")
+def n12(box: Sandbox) -> list[str]:
+    env = dict(box.env_extra)
+    box.env_extra.pop("AMCA_NO_AUTO_COMPLETION", None)
+    run = box.run("plugins")
+    box.env_extra = env
+    installed = (box.home / ".local" / "share").exists()
+    return (expect_not_in(run, "tab-completion")
+            + expect(not installed, "wrote completion files without a terminal"))
+
+
 # ── H. Legacy plugin API ─────────────────────────────────────────────────────
 
 @case("H1", "legacy", "a 2.x five-argument plugin still loads and runs")
@@ -988,6 +1242,32 @@ def i10(box: Sandbox) -> list[str]:
     box.set_config("plugins.sources", "builtin,::not a source::")
     run = box.pl("list", "--available")
     return expect_code(run, 0) + expect_in(run, "meson") + no_traceback(run)
+
+
+@case("I11", "amcapl", "no interactive command exits silently", unexpected=True)
+def i11(box: Sandbox) -> list[str]:
+    """Every picker-driven command must say something on every path.
+
+    `amcapl install` with an empty selection used to exit 1 printing nothing,
+    which is indistinguishable from a crash.
+    """
+    problems: list[str] = []
+    for argv in (("install",), ("enable",), ("disable",), ("toggle",), ("uninstall",)):
+        run = box.pl(*argv)
+        problems += expect(run.all.strip() != "",
+                           f"`amcapl {' '.join(argv)}` produced no output at all")
+        problems += no_traceback(run)
+    return problems
+
+
+@case("I12", "amcapl", "picker commands explain themselves with a plugin installed")
+def i12(box: Sandbox) -> list[str]:
+    box.add_probe("probe")
+    enable_all = box.pl("enable", "probe")
+    again = box.pl("enable")
+    return (expect_code(enable_all, 0)
+            + expect_in(again, "already enabled")
+            + expect_code(again, 0))
 
 
 # ── J. Roots ─────────────────────────────────────────────────────────────────
@@ -1185,6 +1465,74 @@ def l4(box: Sandbox) -> list[str]:
     box.pl("install", "autoscript", "--source", "builtin")
     run = box.run()
     return expect_code(run, 0) + expect_not_in(run, "[autoscript]")
+
+
+@case("L5", "autoscript", "--help describes the plugin instead of running the script")
+def l5(box: Sandbox) -> list[str]:
+    if os.name == "nt":
+        return []
+    box.pl("install", "autoscript", "--source", "builtin")
+    script = box.project / "amca_auto_script.sh"
+    script.write_text('#!/usr/bin/env sh\necho "SCRIPT RAN"\n', encoding="utf-8")
+    script.chmod(0o755)
+    run = box.run("---autoscript", "--help")
+    return (expect_code(run, 0) + expect_in(run, "usage:")
+            + expect_not_in(run, "SCRIPT RAN"))
+
+
+@case("L6", "autoscript", "a bare -- forwards everything to the script")
+def l6(box: Sandbox) -> list[str]:
+    if os.name == "nt":
+        return []
+    box.pl("install", "autoscript", "--source", "builtin")
+    script = box.project / "amca_auto_script.sh"
+    script.write_text('#!/usr/bin/env sh\necho "SCRIPT GOT: $*"\n', encoding="utf-8")
+    script.chmod(0o755)
+    run = box.run("---autoscript", "--", "--help", "--new")
+    return expect_code(run, 0) + expect_in(run, "SCRIPT GOT: --help --new")
+
+
+@case("L7", "autoscript", "--help works before any script exists")
+def l7(box: Sandbox) -> list[str]:
+    box.pl("install", "autoscript", "--source", "builtin")
+    run = box.run("---autoscript", "--help")
+    return (expect_code(run, 0) + expect_in(run, "usage:")
+            + expect_not_in(run, "no auto script found"))
+
+
+# ── P. The bundled example plugin ────────────────────────────────────────────
+
+@case("P1", "example", "the example preset installs and runs")
+def p1(box: Sandbox) -> list[str]:
+    install = box.pl("install", "example", "--source", "builtin")
+    run = box.run("---example", "hello")
+    return (expect_code(install, 0) + expect_code(run, 0)
+            + expect_in(run, "example plugin ran with"))
+
+
+@case("P2", "example", "the example documents every context field")
+def p2(box: Sandbox) -> list[str]:
+    box.pl("install", "example", "--source", "builtin")
+    box.make_root()
+    run = box.run("---example", "--show")
+    problems = expect_code(run, 0)
+    for name in ("args", "working_dir", "root", "project_dir", "plugin_dir", "dry_run"):
+        problems += expect_in(run, name)
+    return problems
+
+
+@case("P3", "example", "the example's PluginError path is clean", unexpected=True)
+def p3(box: Sandbox) -> list[str]:
+    box.pl("install", "example", "--source", "builtin")
+    run = box.run("---example", "--fail")
+    return expect_code(run, 1) + expect_in(run, "clean failure") + no_traceback(run)
+
+
+@case("P4", "example", "the example stays out of the way when not addressed")
+def p4(box: Sandbox) -> list[str]:
+    box.pl("install", "example", "--source", "builtin")
+    run = box.run()
+    return expect_code(run, 0) + expect_not_in(run, "example plugin ran")
 
 
 # ── M. Interpreter / environment hygiene ─────────────────────────────────────
